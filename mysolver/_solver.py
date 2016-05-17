@@ -42,9 +42,6 @@ class __solver(object):
       x = 0
       for i,m in enumerate(self.meshes):
          y = x + m.size
-         """print ("   solver.connect_meshes: "
-          "constructing boundary for mesh #", i)
-         m.create_boundary()""" 
          #NOTE: boundary handling will be substituted by contact object
 
          self.Ec[x:y] = 4.5 - m.material.phiS
@@ -122,6 +119,14 @@ class __solver(object):
    def visualize(self,vlist):
       pass
 
+class contact(object):
+   #TODO
+   def __init__(self):
+      idx = []
+      Ec
+      n
+      p
+      pass
 #********** Base class for handling 1-D problem ***********
 #* ** When handling heterojunctions, meshes with diffrent *
 #* materials should be added, their properties will be    *
@@ -159,8 +164,9 @@ class solver1D(__solver):
       @property
       def size(self):
          return self.N
+
    junct = []
-   neighbpr = []
+   neighbor = []
    def __init__ (self, dx) :
       self.dx = dx
 
@@ -176,22 +182,23 @@ class solver1D(__solver):
          ##### left junction #####
          if pos == m.pos + m.N:
             print ("\t*Junction at left of the new mesh detected")
-            self.junct.append([m.r_idx,new.l_idx,
-                              -m.material.phiS+new.material.phiS])
+            self.junct.append([m.r_idx,    new.l_idx,
+                               m.material, new.material])
             """new.l_edge = m.r_idx
             new.l_off  = -new.material.phiS + m.material.phiS
             m  .r_edge = m.l_idx
             m  .r_off  =  new.material.phiS - m.material.phiS"""
          if pos + N == m.pos:
             print ("\t*Junction at right of the new mesh detected")
-            self.junct.append([new.r_idx,m.l_idx,
-                              -new.material.phiS+m.material.phiS])
+            self.junct.append([new.r_idx,    m.l_idx,
+                               new.material, m.material.phiS])
             """new.r_edge = m.l_idx
             new.r_off  = -new.material.phiS + m.material.phiS
             m  .l_edge = m.r_idx
             m  .l_off  =  new.material.phiS - m.material.phiS"""
       self.meshes.append(new)
       self.c_size += N
+
    def construct_profile(self):
       super(solver1D,self).construct_profile()
       #TODO : neighbor handling
@@ -252,69 +259,23 @@ class solver2D(__solver):
          self.t_idx = np.arange(self.Ny) + startidx
          self.r_idx = self.l_idx + self.Ny -1
          self.b_idx = self.t_idx + self.Ny * (self.Nx -1)
-
-         """self.l_edge = -np.ones(self.Nx)
-         self.t_edge = -np.ones(self.Ny)
-         self.r_edge = -np.ones(self.Nx)
-         self.b_edge = -np.ones(self.Ny)
-
-         self.l_off = np.zeros(self.Nx)
-         self.t_off = np.zeros(self.Ny)
-         self.r_off = np.zeros(self.Nx)
-         self.b_off = np.zeros(self.Ny)"""
-         #NOTE:to be removed
-         #moving management function to the solvers 
-
-      """def create_boundary(self):
-         self.l_boundary = self.l_idx[np.where(self.l_edge==-1)[0]]
-         self.t_boundary = self.t_idx[np.where(self.t_edge==-1)[0]]
-         self.r_boundary = self.r_idx[np.where(self.r_edge==-1)[0]]
-         self.b_boundary = self.b_idx[np.where(self.b_edge==-1)[0]]
-
-         l_len = len(self.l_boundary)
-         self.l_len = l_len
-         if l_len:
-            print ('\t*mesh2D: left boundary length   = ', l_len)
-            self.l_Ec = np.zeros(l_len)
-            self.l_n  = np.zeros(l_len)
-            self.l_p  = np.zeros(l_len)
-
-         t_len = len(self.t_boundary)
-         self.t_len = t_len
-         if t_len:
-            print ('\t*mesh2D: top boundary length    = ', t_len)
-            self.t_Ec = np.zeros(t_len)
-            self.t_n  = np.zeros(t_len)
-            self.t_p  = np.zeros(t_len)
-
-         r_len = len(self.r_boundary)
-         self.r_len = r_len
-         if r_len:
-            print ('\t*mesh2D: right boundary length  = ', r_len)
-            self.r_Ec = np.zeros(r_len)
-            self.r_p  = np.zeros(r_len)
-            self.r_n  = np.zeros(r_len)
-
-         b_len = len(self.b_boundary)
-         self.b_len = b_len
-         if b_len:
-            print ('\t*mesh2D: bottom boundary length = ', b_len)
-            self.b_Ec = np.zeros(b_len)
-            self.b_p  = np.zeros(b_len)
-            self.b_n  = np.zeros(b_len)"""#NOTE: to be deleted
+         # moving junction management function to the solvers 
 
       @property
       def size(self):
          return self.Nx * self.Ny
 
+   # will be used in constructing operator matrice
+   # each entry of the list contain indice and material type
    junc     = {'x':[], 'y':[]}
-   neighbor = {'x':None, 'y':None}
+   # containing the indice of neighboring pair
+   neighbor = {'x':[], 'y':[]}
    def __init__ (self, dx, dy) :
       self.dx = dx
       self.dy = dy
 
    def add_mesh(self, N, pos=[0,0], material='Si') :
-      assert len(N) == 2, "N should be a list containing the 2-D sizes"
+      assert len(N)==2, "N must be a list containing the 2-D sizes"
       ##### Should not exit overlaps between meshes #####
       if any([overlap(pos[0],N[0],m.pos[0],m.N[0]) 
           and overlap(pos[1],N[1],m.pos[1],m.N[1]) 
@@ -324,8 +285,8 @@ class solver2D(__solver):
 
       new = self.mesh2D(self.dx,self.dy, N, pos, mdb[material])
       new.idxlog(self.c_size)
-      print ("solver2D.add_mesh: mesh #{} added, idx={}~{}"
-       .format(len(self.meshes),self.c_size, self.c_size + N[0]*N[1]-1))
+      print ("solver2D.add_mesh: mesh #{} added, idx={}~{}".format
+       (len(self.meshes),self.c_size,self.c_size+N[0]*N[1]-1))
 
       ### detect junctions between new and old meshes ###
       for m in self.meshes:
@@ -340,11 +301,7 @@ class solver2D(__solver):
                 "overlap length=", len(new.t_idx[i:k]))
                self.junc['x'].append([m.  b_idx[j:l],
                                       new.t_idx[i:k],
-                         -m.material.phiS + new.material.phiS])
-               """new.t_edge[i:k]= m.b_idx[j:l]
-               #new.t_off [i:k]= -new.material.phiS + m.material.phiS
-               #m  .b_edge[j:l]= new.t_idx[i:k]
-               #m  .b_off [j:l]= -m.material.phiS + new.material.phiS"""#NOTE:to be deleted
+                                      m.material, new.material])
             ###### bottom junction #####
             elif pos[0] + N[0] == m.pos[0]:
                assert len(new.b_idx[i:k]) == len(m.t_idx[j:l])
@@ -352,11 +309,7 @@ class solver2D(__solver):
                 "overlap lenth=", len(new.b_idx[i:k]))
                self.junc['x'].append([new.b_idx[i:k],
                                       m.  t_idx[j:l],
-                         -new.material.phiS + m.material.phiS])
-               """new.b_edge[i:k]= m.t_idx[j:l]
-               #new.b_off [i:k]= -new.material.phiS + m.material.phiS
-               #m  .t_edge[j:l]= new.b_idx[i:k]
-               #m  .t_off [j:l]= -m.material.phiS + new.material.phiS"""
+                                      new.material, m.material])
 
          ###### junction at left or right of the new mesh ######
          if overlap(pos[0],N[0],m.pos[0],m.N[0]):
@@ -368,11 +321,7 @@ class solver2D(__solver):
                 "overlap lenth=", len(new.r_idx[i:k]))
                self.junc['y'].append([new.r_idx[i:k],
                                       m.  l_idx[j:l],
-                        -new.material.phiS + m.material.phiS])
-               """#new.r_edge[i:k]= m  .l_idx[j:l]
-               #new.r_off [i:k]= -new.material.phiS + m.material.phiS
-               #m  .l_edge[j:l]= new.r_idx[i:k]
-               #m  .l_off [j:l]= -m.material.phiS + new.material.phiS"""
+                                      new.material, m.material])
             ###### left junction #######
             elif pos[1] == m.pos[1] + m.N[1]:
                assert len(new.l_idx[i:k]) == len(m.r_idx[j:l])
@@ -380,21 +329,29 @@ class solver2D(__solver):
                 "overlap lenth=", len(new.l_idx[i:k]))
                self.junc['y'].append([m.  r_idx[j:l],
                                       new.l_idx[i:k],
-                        -m.material.phiS + new.material.phiS])
-               """new.l_edge[i:k]= m  .r_idx[j:l]
-               #new.l_off [i:k]= -new.material.phiS + m.material.phiS
-               #m  .r_edge[j:l]= new.l_idx[i:k]
-               #m  .r_off [j:l]= -m.material.phiS + new.material.phiS"""
+                                      m.material, new.material])
 
       self.meshes.append(new)
       self.c_size += N[0] * N[1]
 
    def construct_profile(self):
       super(solver2D,self).construct_profile()
+      print ("logging indice neighboring pairs",end='...')
+      nn = {'x':[],'y':[]}
       for m in self.meshes:
-         pass #TODO: neighbor handling
-      self.neighbor['x'] 
-      self.neighbor['y'] 
+         xx = np.zeros([2,m.Ny*(m.Nx-1)],dtype=int)
+         yy = np.zeros([2,m.Nx*(m.Ny-1)],dtype=int)
+         for i in range(m.Nx-1) :
+            xx[0,i*m.Ny:(i+1)*m.Ny] = m.t_idx + i*m.Ny
+         xx[1,:] = xx[0,:] + m.Ny
+         for i in range(m.Ny-1) :
+            yy[0,i*m.Nx:(i+1)*m.Nx] = m.l_idx + i
+         yy[1,:] = yy[0,:] + 1
+         nn['x'].append(xx)
+         nn['y'].append(yy)
+      self.neighbor['x'] = np.hstack([n for n in nn['x']])
+      self.neighbor['y'] = np.hstack([n for n in nn['y']])
+      print ("done")
 
    #############################################################
    ##        Visulization of the semiconductor meshes         ##
