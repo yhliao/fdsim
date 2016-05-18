@@ -4,9 +4,9 @@ import numpy as np
 from scipy import sparse as sp
 from scipy.sparse.linalg import spsolve
 
-from mysolver._solver import solver1D, solver2D
-from mysolver.const   import q, kBT
-from mysolver.util    import myDamper
+from solver._solver import solver1D, solver2D
+from solver.const   import q, kBT
+from solver.util    import myDamper
 
 class p_solver1D(solver1D):
 

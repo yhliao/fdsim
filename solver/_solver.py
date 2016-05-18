@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 #from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
-from mysolver.const import kBT, mdb
-from mysolver.util import overlap, calc_offset
+from solver.const import kBT, mdb
+from solver.util import overlap, calc_offset
 
 V0   =  4.5
 pcol = {'Ec':'b','Ev':'g','n':'r','p':'y','Efn':'r','Efp':'y'}

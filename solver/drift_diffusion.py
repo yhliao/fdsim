@@ -1,8 +1,8 @@
 import numpy as np
 
-from mysolver._solver import solver1D, solver2D
-from mysolver.util    import solve_diag2
-from mysolver.const   import *
+from solver._solver import solver1D, solver2D
+from solver.util    import solve_diag2
+from solver.const   import *
 mn = 1350000
 mp = 450000
 
