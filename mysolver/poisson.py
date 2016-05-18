@@ -115,6 +115,7 @@ class p_solver2D(solver2D):
          self.NB_[i:j] = m.NB.reshape(m.size) * q /m.material.epr
          i = j
       assert i == self.c_size
+
       ## Handling Ec boundary offset
       for j in self.junc['x']:
          offset = -j[2].phiS + j[3].phiS
@@ -126,24 +127,33 @@ class p_solver2D(solver2D):
          if offset != 0:
             self.__Ecoff[j[0]] += offset / (self.dy**2)
             self.__Ecoff[j[1]] -= offset / (self.dy**2)
+
       ## use coordinate form to efficiently generate the matrix
       ## then convert to csr form
       ## TODO: contact handling
       print ("Constructing Laplacian sparse matrix ...",end=' ')
-      jx= np.hstack([j[0:2] for j in self.junc['x']])
-      jy= np.hstack([j[0:2] for j in self.junc['y']])
+      jx = jy = np.zeros([2,0])
+      if len(self.junc['x']):
+         jx= np.hstack([j[0:2] for j in self.junc['x']])
+      if len(self.junc['y']):
+         jy= np.hstack([j[0:2] for j in self.junc['y']])
+      cx = cy = np.zeros(0)
+      if len(self.contact['x']):
+         cx= np.hstack([j.idx for j in self.contact['x']])
+      if len(self.contact['y']):
+         cy= np.hstack([j.idx for j in self.contact['y']])
       nx= self.neighbor['x']
       ny= self.neighbor['y']
 
       row = np.concatenate((jx[0],jx[1],jy[0],jy[1],
                             nx[0],nx[1],ny[0],ny[1],
                             jx[1],jx[0],jy[1],jy[0],
-                            nx[0],nx[1],ny[0],ny[1]))
+                            nx[0],nx[1],ny[0],ny[1],cx,cy))
 
       col = np.concatenate((jx[1],jx[0],jy[1],jy[0],
                             nx[1],nx[0],ny[1],ny[0],
                             jx[1],jx[0],jy[1],jy[0],
-                            nx[0],nx[1],ny[0],ny[1]))
+                            nx[0],nx[1],ny[0],ny[1],cx,cy))
       d1 = np.ones(jx.shape[1]*2) / (self.dx**2)
       d2 = np.ones(jy.shape[1]*2) / (self.dy**2)
       d3 = np.ones(nx.shape[1]*2) / (self.dx**2)
@@ -152,7 +162,9 @@ class p_solver2D(solver2D):
       d6 = -np.ones(jy.shape[1]*2) / (self.dy**2)
       d7 = -np.ones(nx.shape[1]*2) / (self.dx**2)
       d8 = -np.ones(ny.shape[1]*2) / (self.dy**2)
-      d  = np.concatenate((d1,d2,d3,d4,d5,d6,d7,d8))
+      d9  = -np.ones(cx.shape[0]) / (self.dx**2)
+      d10 = -np.ones(cy.shape[0]) / (self.dy**2)
+      d  = np.concatenate((d1,d2,d3,d4,d5,d6,d7,d8,d9,d10))
       L  = sp.coo_matrix((d,(row,col)))
       self.__L =  L.tocsr()
       print ("done, __L.shape=",self.__L.shape )
@@ -215,18 +227,13 @@ class p_solver2D(solver2D):
    @property
    def L(self):
       return self.__L.toarray()
+
    def reset_EcBV(self) :
       self.__EcBV[:] = self.__Ecoff
-      #TODO: contact handling
-      """for m in self.meshes :
-         if m.l_len:
-            self.__EcBV[m.l_boundary] += m.l_Ec / self.dy**2 
-         if m.r_len:
-            self.__EcBV[m.r_boundary] += m.r_Ec / self.dy**2
-         if m.t_len:
-            self.__EcBV[m.t_boundary] += m.t_Ec / self.dx**2
-         if m.b_len:
-            self.__EcBV[m.b_boundary] += m.b_Ec / self.dx**2"""
+      for c in self.contact['x'] :
+            self.__EcBV[c.idx] += c.Ec / self.dx**2
+      for c in self.contact['y'] :
+            self.__EcBV[c.idx] += c.Ec / self.dy**2
 
    def solve_lpoisson(self) :
       _charge = self.p - self.n

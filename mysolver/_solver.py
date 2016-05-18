@@ -43,8 +43,6 @@ class __solver(object):
       x = 0
       for i,m in enumerate(self.meshes):
          y = x + m.size
-         #NOTE: boundary handling will be substituted by contact object
-
          self.Ec[x:y] = V0 - m.material.phiS
          self.Ev[x:y] = V0 - m.material.phiS - m.material.Eg
          if m.material.type == 'semiconductor' :
@@ -64,23 +62,35 @@ class __solver(object):
    ## ** Avoid calling them frequently, manipulate the        ##
    ## representative 1-D vector directly!!!                   ##
    #############################################################
-   def load_mesh(self,name) :
-      vector = self.__dict__[name] 
+   def load_mesh(self,nlist) :
+      assert type(nlist) is list
       i = 0
-      for m in self.meshes :
+      for num,m in enumerate(self.meshes) :
          s = m.size
          j = i + s
-         d = m.__dict__[name]
-         vector[i:j] = d.reshape(s) 
+         for name in nlist:
+            try:
+               vector = self.__dict__[name] 
+               d = m.__dict__[name]
+               vector[i:j] = d.reshape(s)
+            except KeyError:
+               print ("no {} attribute for mesh #{}"
+                     .format(name,num))
          i = j
       assert i == self.c_size
-   def write_mesh(self,name) :
+   def write_mesh(self,nlist) :
+      assert type(nlist) is list
       i = 0
-      for m in self.meshes :
+      for num,m in enumerate(self.meshes) :
          s = m.size
          j = i + s
-         p = m.__dict__[name]
-         p[:] = self.__dict__[name][i:j].reshape(m.N)
+         for name in nlist:
+            try:
+               p = m.__dict__[name]
+               p[:] = self.__dict__[name][i:j].reshape(m.N)
+            except KeyError: 
+               print ("no {} attribute for mesh #{}"
+                     .format(name,num))
          i = j
       assert i == self.c_size
 
@@ -178,7 +188,6 @@ class solver1D(__solver):
    junct = []
    neighbor = []
    def __init__ (self, dx) :
-      print ("========= solver1D initialization ==========")
       self.dx = dx
 
    def add_mesh(self,N,pos,material) :
@@ -283,7 +292,6 @@ class solver2D(__solver):
    # containing the indice of neighboring pair
    neighbor = {'x':[], 'y':[]}
    def __init__ (self, dx, dy) :
-      print ("========= solver2D initialization ==========")
       self.dx = dx
       self.dy = dy
 
@@ -346,9 +354,9 @@ class solver2D(__solver):
 
       self.meshes.append(new)
       self.c_size += N[0] * N[1]
+      return new
 
    def add_contact(self,x,y) :
-
       cix = len(self.contact['x'])
       ciy = len(self.contact['y'])
 
@@ -366,17 +374,19 @@ class solver2D(__solver):
             if overlap(x[0],Nx,m.pos[0],m.N[0]):
                _,i,_,k = calc_offset(x[0],Nx,m.pos[0],m.N[0])
                if y == m.pos[1] - 1:
-                  print("y contact #{} set at left of mesh #{}"\
-                        .format(ciy,n))
+                  print("solver2D.add_contact: y-contact #{} added"
+                        "\n\t*At left of mesh #{}, length={}"
+                        .format(ciy,n,len(m.l_idx[i:k])))
                   new = contact(m.l_idx[i:k],m.material,0)
                   self.contact['y'].append(new)
-                  break
+                  return new
                elif y == m.pos[1] + m.N[1]:
-                  print("y contact #{} set at right of mesh #{}"\
-                        .format(ciy,n))
+                  print("solver2D.add_contact: y-contact #{} added"
+                        "\n\t*At right of mesh #{}, length={}"
+                        .format(ciy,n,len(m.r_idx[i:k])))
                   new = contact(m.r_idx[i:k],m.material,1)
                   self.contact['y'].append(new)
-                  break
+                  return new
          else:
             print("No connection with mesh detected, ignored")
       #### x contact ####
@@ -393,17 +403,19 @@ class solver2D(__solver):
             if overlap(y[0],Ny,m.pos[1],m.N[1]):
                _,i,_,k = calc_offset(y[0],Ny,m.pos[1],m.N[1])
                if x == m.pos[0] - 1:
-                  print("x contact #{} set at top of mesh #{}"\
-                        .format(cix,n)) 
+                  print("solver2D.add_contact: y-contact #{} added"
+                        "\n\t*At top of mesh #{}, length={}"
+                        .format(cix,n,len(m.t_idx[i:k])))
                   new = contact(m.t_idx[i:k],m.material,0)
                   self.contact['x'].append(new)
-                  break
+                  return new
                elif x == m.pos[0] + m.N[0]:
-                  print("x contact #{} set at bottom of mesh #{}"\
-                        .format(cix,n))
+                  print("solver2D.add_contact: y-contact #{} added"
+                        "\n\t*At bottom of mesh #{}, length={}"
+                        .format(cix,n,len(m.b_idx[i:k])))
                   new = contact(m.b_idx[i:k],m.material,1)
                   self.contact['x'].append(new)
-                  break
+                  return new
          else:
             print("No connection with mesh detected, ignored")
       else:
