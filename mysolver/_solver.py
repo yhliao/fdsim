@@ -8,6 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mysolver.const import kBT, mdb
 from mysolver.util import overlap, calc_offset
 
+V0   =  4.5
 pcol = {'Ec':'b','Ev':'g','n':'r','p':'y'}
 #************* Base class for all solvers  ****************
 #* ** It defines the common routines which will be used   *
@@ -44,13 +45,13 @@ class __solver(object):
          y = x + m.size
          #NOTE: boundary handling will be substituted by contact object
 
-         self.Ec[x:y] = 4.5 - m.material.phiS
-         self.Ev[x:y] = 4.5 - m.material.phiS - m.material.Eg
+         self.Ec[x:y] = V0 - m.material.phiS
+         self.Ev[x:y] = V0 - m.material.phiS - m.material.Eg
          if m.material.type == 'semiconductor' :
             self.n[x:y]    = m.material.ni
             self.p[x:y]    = m.material.ni
-            self.Efn[x:y]  = 4.5 - m.material.phiS - m.material.Eg/2
-            self.Efp[x:y]  = 4.5 - m.material.phiS - m.material.Eg/2
+            self.Efn[x:y]  = V0 - m.material.phiS - m.material.Eg/2
+            self.Efp[x:y]  = V0 - m.material.phiS - m.material.Eg/2
          elif m.material.type != 'insulator':
             raise ValueError, \
              "mesh2D() Error, material type (%s) unknown!"\
@@ -120,13 +121,22 @@ class __solver(object):
       pass
 
 class contact(object):
-   #TODO
-   def __init__(self):
-      idx = []
-      Ec
-      n
-      p
-      pass
+   __slots__ = ['idx','material','pflag','Ec','n','p']
+   def __init__(self,idx,m,flag):
+      self.idx      = idx
+      self.material = m
+      self.pflag    = flag
+
+      self.Ec = V0 - m.phiS
+      self.n  = m.ni
+      self.p  = m.ni
+   @property
+   def V(self):
+      return V0 - (self.Ec + self.material.phiS)
+   @V.setter
+   def V(self,v):
+      self.Ec = V0 - self.material.phiS - v
+
 #********** Base class for handling 1-D problem ***********
 #* ** When handling heterojunctions, meshes with diffrent *
 #* materials should be added, their properties will be    *
@@ -168,6 +178,7 @@ class solver1D(__solver):
    junct = []
    neighbor = []
    def __init__ (self, dx) :
+      print ("========= solver1D initialization ==========")
       self.dx = dx
 
    def add_mesh(self,N,pos,material) :
@@ -233,7 +244,7 @@ class solver2D(__solver):
          self.NB  = np.zeros(N)
          self.Jn = np.zeros(N)
          self.Jp = np.zeros(N)
-         self.Ec  = (4.5 - material.phiS) * np.ones(N)
+         self.Ec  = (V0 - material.phiS) * np.ones(N)
          self.Ev  = self.Ec - material.Eg
          if material.type == 'semiconductor' :
             self.n    = material.ni * np.ones(N)
@@ -268,9 +279,11 @@ class solver2D(__solver):
    # will be used in constructing operator matrice
    # each entry of the list contain indice and material type
    junc     = {'x':[], 'y':[]}
+   contact  = {'x':[], 'y':[]}
    # containing the indice of neighboring pair
    neighbor = {'x':[], 'y':[]}
    def __init__ (self, dx, dy) :
+      print ("========= solver2D initialization ==========")
       self.dx = dx
       self.dy = dy
 
@@ -333,6 +346,69 @@ class solver2D(__solver):
 
       self.meshes.append(new)
       self.c_size += N[0] * N[1]
+
+   def add_contact(self,x,y) :
+
+      cix = len(self.contact['x'])
+      ciy = len(self.contact['y'])
+
+      #### y contanct ####
+      if type(x) is list and len(x)==2 and type(y) is int:
+         Nx = x[1] - x[0] + 1
+         assert Nx > 0, "require x[1] > x[0]!!"
+         if any([overlap(x[0],Nx,m.pos[0],m.N[0]) and\
+                 m.pos[1]<= y <= m.pos[1] + m.N[1] -1
+                 for m in self.meshes]):
+            raise ValueError,\
+            ("error! contact should not overlap with meshes")
+
+         for n,m in enumerate(self.meshes):
+            if overlap(x[0],Nx,m.pos[0],m.N[0]):
+               _,i,_,k = calc_offset(x[0],Nx,m.pos[0],m.N[0])
+               if y == m.pos[1] - 1:
+                  print("y contact #{} set at left of mesh #{}"\
+                        .format(ciy,n))
+                  new = contact(m.l_idx[i:k],m.material,0)
+                  self.contact['y'].append(new)
+                  break
+               elif y == m.pos[1] + m.N[1]:
+                  print("y contact #{} set at right of mesh #{}"\
+                        .format(ciy,n))
+                  new = contact(m.r_idx[i:k],m.material,1)
+                  self.contact['y'].append(new)
+                  break
+         else:
+            print("No connection with mesh detected, ignored")
+      #### x contact ####
+      elif type(y) is list and len(y)==2 and type(x) is int:
+         Ny = y[1] - y[0] + 1
+         assert Ny > 0, "require y[1] > y[0]!!"
+         if any([overlap(y[0],Ny,m.pos[1],m.N[1]) and\
+                 m.pos[0]<= x <= m.pos[0] + m.N[0] -1
+                 for m in self.meshes]):
+            raise ValueError,\
+            ("error! contact should not overlap with meshes")
+
+         for n,m in enumerate(self.meshes):
+            if overlap(y[0],Ny,m.pos[1],m.N[1]):
+               _,i,_,k = calc_offset(y[0],Ny,m.pos[1],m.N[1])
+               if x == m.pos[0] - 1:
+                  print("x contact #{} set at top of mesh #{}"\
+                        .format(cix,n)) 
+                  new = contact(m.t_idx[i:k],m.material,0)
+                  self.contact['x'].append(new)
+                  break
+               elif x == m.pos[0] + m.N[0]:
+                  print("x contact #{} set at bottom of mesh #{}"\
+                        .format(cix,n))
+                  new = contact(m.b_idx[i:k],m.material,1)
+                  self.contact['x'].append(new)
+                  break
+         else:
+            print("No connection with mesh detected, ignored")
+      else:
+         raise ValueError,"Wrong Format!\n<usage>:"\
+              "add_contact([x1,x2],y) or add_contact(x,[y1,y2])"
 
    def construct_profile(self):
       super(solver2D,self).construct_profile()
