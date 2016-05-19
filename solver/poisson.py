@@ -15,7 +15,7 @@ class p_solver1D(solver1D):
 
    def construct_profile(self) : 
       super(p_solver1D,self).construct_profile()
-      self.NB_      = np.zeros(self.c_size)
+      self.NB_     = np.zeros(self.c_size)
       self.__EcBV  = np.zeros(self.c_size)
       self.__Ecoff = np.zeros(self.c_size)
       i = 0
@@ -25,7 +25,20 @@ class p_solver1D(solver1D):
          i = j
       assert i == self.c_size
 
-      L  = sp.eye(self.c_size,format='lil')
+      for j in self.junc:
+         offset = -j[2].phiS + j[3].phiS
+         if offset != 0:
+            self.__Ecoff[j[0]] += offset / (self.dx**2)
+            self.__Ecoff[j[1]] -= offset / (self.dx**2)
+
+      jx = np.zeros([2,0])
+      if len(self.junc):
+         jx = np.hstack([[[j[0]],[j[1]]] for j in self.junc])
+      cx = np.zeros(0)
+      if len(self.contact):
+         cx = np.hstack([j.idx for j in self.contact])
+      nx = self.neighbor
+      """L  = sp.eye(self.c_size,format='lil')
       L *= -2./(self.dx**2)  
       for m in self.meshes :
          # neither left nor right edge
@@ -47,19 +60,32 @@ class p_solver1D(solver1D):
             L[m.r_idx,m.r_edge] = 1./(self.dx**2)
             self.__Ecoff[m.r_idx] += m.r_off / self.dx**2
          else:
-            assert edge == -1
+            assert edge == -1"""
 
+      print (nx)
+      print (jx)
+      row = np.concatenate((jx[0],jx[1],nx[0],nx[1],
+                            jx[1],jx[0],nx[0],nx[1],cx))
+
+      col = np.concatenate((jx[1],jx[0],nx[1],nx[0],
+                            jx[1],jx[0],nx[0],nx[1],cx))
+      d1 = np.ones(jx.shape[1]*2) / (self.dx**2)
+      d2 = np.ones(nx.shape[1]*2) / (self.dx**2)
+      d3 = -np.ones(jx.shape[1]*2) / (self.dx**2)
+      d4 = -np.ones(nx.shape[1]*2) / (self.dx**2)
+      d5 = -np.ones(cx.shape[0])   / (self.dx**2)
+      d  = np.concatenate((d1,d2,d3,d4,d5))
+      L  = sp.coo_matrix((d,(row,col)))
+      self.__L =  L.tocsr()
+      print ("done, __L.shape=",self.__L.shape )
       self.__L = L.tocsr()
       # __L * Ec = (NB+n-p)*q/epr - __EcBV
       del L
 
    def reset_EcBV(self) : 
       self.__EcBV[:] = self.__Ecoff
-      for m in self.meshes :
-         if m.l_edge == -1:
-            self.__EcBV[m.l_idx] += m.l_Ec / self.dx**2 
-         if m.r_edge ==-1:
-            self.__EcBV[m.r_idx] += m.r_Ec / self.dx**2
+      for c in self.contact :
+         self.__EcBV[c.idx] += c.Ec / self.dx**2
 
    def solve_lpoisson(self) :
       _charge = self.p - self.n
@@ -175,9 +201,9 @@ class p_solver2D(solver2D):
    def reset_EcBV(self) :
       self.__EcBV[:] = self.__Ecoff
       for c in self.contact['x'] :
-            self.__EcBV[c.idx] += c.Ec / self.dx**2
+         self.__EcBV[c.idx] += c.Ec / self.dx**2
       for c in self.contact['y'] :
-            self.__EcBV[c.idx] += c.Ec / self.dy**2
+         self.__EcBV[c.idx] += c.Ec / self.dy**2
 
    def solve_lpoisson(self) :
       _charge = self.p - self.n

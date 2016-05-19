@@ -167,25 +167,12 @@ class solver1D(__solver):
       def idxlog(self,startidx):
          self.l_idx = startidx
          self.r_idx = startidx + self.N-1
-         """self.l_edge = self.r_edge = -1
-         self.l_off  = self.r_off  = 0
-      def create_boundary(self):
-         if self.l_edge == -1:
-            print ("\t*mesh1D: left boundary detected")
-            self.l_Ec = 0
-            self.l_n  = 0
-            self.l_p  = 0
-         if self.r_edge == -1:
-            print ("\t*mesh1D: right boundary detected")
-            self.r_Ec = 0
-            self.r_n  = 0
-            self.r_p  = 0"""#NOTE:to be removed
-
       @property
       def size(self):
          return self.N
 
-   junct = []
+   junc     = []
+   contact  = []
    neighbor = []
    def __init__ (self, dx) :
       self.dx = dx
@@ -202,26 +189,49 @@ class solver1D(__solver):
          ##### left junction #####
          if pos == m.pos + m.N:
             print ("\t*Junction at left of the new mesh detected")
-            self.junct.append([m.r_idx,    new.l_idx,
+            self.junc.append([m.r_idx,    new.l_idx,
                                m.material, new.material])
-            """new.l_edge = m.r_idx
-            new.l_off  = -new.material.phiS + m.material.phiS
-            m  .r_edge = m.l_idx
-            m  .r_off  =  new.material.phiS - m.material.phiS"""
          if pos + N == m.pos:
             print ("\t*Junction at right of the new mesh detected")
-            self.junct.append([new.r_idx,    m.l_idx,
+            self.junc.append([new.r_idx,    m.l_idx,
                                new.material, m.material.phiS])
-            """new.r_edge = m.l_idx
-            new.r_off  = -new.material.phiS + m.material.phiS
-            m  .l_edge = m.r_idx
-            m  .l_off  =  new.material.phiS - m.material.phiS"""
       self.meshes.append(new)
       self.c_size += N
+      return new
+
+   def add_contact(self,x):
+      cix = len(self.contact)
+      if any([m.pos<=x<=m.pos+m.N-1 for m in self.meshes]):
+         raise ValueError,\
+         ("error! contact should not overlap with meshes")
+      for n,m in enumerate(self.meshes):
+         if x == m.pos - 1:
+            print("solver1D.add_contact: contact #{} added"
+                  "\n\t*At left of mesh #{}"
+                  .format(cix,n))
+            new = contact(m.l_idx,m.material,0)
+            self.contact.append(new)
+            return new
+         if x == m.pos + m.N:
+            print("solver1D.add_contact: contact #{} added"
+                  "\n\t*At right of mesh #{}"
+                  .format(cix,n))
+            new = contact(m.r_idx,m.material,0)
+            self.contact.append(new)
+            return new
+      else:
+         print("No connection with mesh detected, ignored")
 
    def construct_profile(self):
       super(solver1D,self).construct_profile()
-      #TODO : neighbor handling
+      print ("logging indice neighboring pairs",end='...')
+      nn = []
+      for m in self.meshes:
+         nl = np.arange(m.l_idx,m.r_idx,dtype=int)
+         nr = nl+1
+         nn.append(np.vstack([nl,nr]))
+      self.neighbor = np.hstack([n for n in nn])
+      print ("done")
 
    def visualize(self,vlist):
       fig = plt.figure()
@@ -403,14 +413,14 @@ class solver2D(__solver):
             if overlap(y[0],Ny,m.pos[1],m.N[1]):
                _,i,_,k = calc_offset(y[0],Ny,m.pos[1],m.N[1])
                if x == m.pos[0] - 1:
-                  print("solver2D.add_contact: y-contact #{} added"
+                  print("solver2D.add_contact: x-contact #{} added"
                         "\n\t*At top of mesh #{}, length={}"
                         .format(cix,n,len(m.t_idx[i:k])))
                   new = contact(m.t_idx[i:k],m.material,0)
                   self.contact['x'].append(new)
                   return new
                elif x == m.pos[0] + m.N[0]:
-                  print("solver2D.add_contact: y-contact #{} added"
+                  print("solver2D.add_contact: x-contact #{} added"
                         "\n\t*At bottom of mesh #{}, length={}"
                         .format(cix,n,len(m.b_idx[i:k])))
                   new = contact(m.b_idx[i:k],m.material,1)
