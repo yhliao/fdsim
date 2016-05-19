@@ -9,7 +9,9 @@ from solver.const import kBT, mdb
 from solver.util import overlap, calc_offset
 
 V0   =  4.5
-pcol = {'Ec':'b','Ev':'g','n':'r','p':'y','Efn':'r','Efp':'y'}
+pcol = {'Ec' :'blue','Ev' :'green',
+        'n'  :'red' ,'p'  :'yellow',
+        'Efn':'red' ,'Efp':'yellow'}
 #************* Base class for all solvers  ****************
 #* ** It defines the common routines which will be used   *
 #* to construct and manage the 1-D representative vectors *
@@ -45,14 +47,14 @@ class __solver(object):
          y = x + m.size
          self.Ec[x:y] = V0 - m.material.phiS
          self.Ev[x:y] = V0 - m.material.phiS - m.material.Eg
-         if m.material.type == 'semiconductor' :
+         if m.material.type is 'semiconductor' :
             self.n[x:y]    = m.material.ni
             self.p[x:y]    = m.material.ni
             self.Efn[x:y]  = V0 - m.material.phiS - m.material.Eg/2
             self.Efp[x:y]  = V0 - m.material.phiS - m.material.Eg/2
-         elif m.material.type != 'insulator':
+         elif not m.material.type is 'insulator':
             raise ValueError, \
-             "mesh2D() Error, material type (%s) unknown!"\
+             "Error, material type (%s) unknown!"\
               %(material.type)
          x = y
       assert x == self.c_size
@@ -101,12 +103,12 @@ class __solver(object):
       i = 0
       for m in self.meshes :
          j = i + m.size
-         if m.material.type == "semiconductor":
+         if m.material.type is "semiconductor":
             self.n[i:j] = m.material.Nc * \
                          np.exp(( self.Efn[i:j]-self.Ec[i:j])/kBT)
             self.p[i:j] = m.material.Nv * \
                          np.exp((-self.Efp[i:j]+self.Ev[i:j])/kBT)
-         elif m.material.type != "insulator":
+         elif not m.material.type is "insulator":
             raise ValueError,\
              "Error!! Material %s unkown!!" % m.material.type
          i = j
@@ -115,12 +117,12 @@ class __solver(object):
       i = 0
       for m in self.meshes :
          j = i + m.size
-         if m.material.type == "semiconductor":
+         if m.material.type is "semiconductor":
             self.Efn[i:j] = self.Ec[i:j] + \
                         kBT * np.log(self.n[i:j]/m.material.Nc)
             self.Efp[i:j] = self.Ev[i:j] - \
                         kBT * np.log(self.p[i:j]/m.material.Nv)
-         elif m.material.type != "insulator":
+         elif not m.material.type is "insulator":
             raise ValueError,\
              "error!! Material %s unkown!!" % m.material.type
          i = j
@@ -138,8 +140,9 @@ class contact(object):
       self.pflag    = flag
 
       self.Ec = V0 - m.phiS
-      self.n  = m.ni
-      self.p  = m.ni
+      if m.type is "semiconductor":
+         self.n  = m.ni
+         self.p  = m.ni
    @property
    def V(self):
       return V0 - (self.Ec + self.material.phiS)
@@ -190,11 +193,11 @@ class solver1D(__solver):
          if pos == m.pos + m.N:
             print ("\t*Junction at left of the new mesh detected")
             self.junc.append([m.r_idx,    new.l_idx,
-                               m.material, new.material])
+                              m.material, new.material])
          if pos + N == m.pos:
             print ("\t*Junction at right of the new mesh detected")
             self.junc.append([new.r_idx,    m.l_idx,
-                               new.material, m.material.phiS])
+                              new.material, m.material.phiS])
       self.meshes.append(new)
       self.c_size += N
       return new
@@ -216,7 +219,7 @@ class solver1D(__solver):
             print("solver1D.add_contact: contact #{} added"
                   "\n\t*At right of mesh #{}"
                   .format(cix,n))
-            new = contact(m.r_idx,m.material,0)
+            new = contact(m.r_idx,m.material,1)
             self.contact.append(new)
             return new
       else:
@@ -224,12 +227,14 @@ class solver1D(__solver):
 
    def construct_profile(self):
       super(solver1D,self).construct_profile()
-      print ("logging indice neighboring pairs",end='...')
+      print ("logging indice of neighboring pairs",end='...')
       nn = []
       for m in self.meshes:
-         nl = np.arange(m.l_idx,m.r_idx,dtype=int)
-         nr = nl+1
-         nn.append(np.vstack([nl,nr]))
+         n = np.empty([3,m.N-1])
+         n[0,:] = np.arange(m.l_idx,m.r_idx,dtype=int)
+         n[1,:] = n[0,:]+1
+         n[2,:] = m.material.epr 
+         nn.append(n)
       self.neighbor = np.hstack([n for n in nn])
       print ("done")
 
@@ -434,17 +439,19 @@ class solver2D(__solver):
 
    def construct_profile(self):
       super(solver2D,self).construct_profile()
-      print ("logging indice neighboring pairs",end='...')
+      print ("logging indice of neighboring pairs",end='...')
       nn = {'x':[],'y':[]}
       for m in self.meshes:
-         xx = np.zeros([2,m.Ny*(m.Nx-1)],dtype=int)
-         yy = np.zeros([2,m.Nx*(m.Ny-1)],dtype=int)
+         xx = np.zeros([3,m.Ny*(m.Nx-1)])
+         yy = np.zeros([3,m.Nx*(m.Ny-1)])
          for i in range(m.Nx-1) :
             xx[0,i*m.Ny:(i+1)*m.Ny] = m.t_idx + i*m.Ny
          xx[1,:] = xx[0,:] + m.Ny
+         xx[2,:] = m.material.epr
          for i in range(m.Ny-1) :
             yy[0,i*m.Nx:(i+1)*m.Nx] = m.l_idx + i
          yy[1,:] = yy[0,:] + 1
+         yy[2,:] = m.material.epr
          nn['x'].append(xx)
          nn['y'].append(yy)
       self.neighbor['x'] = np.hstack([n for n in nn['x']])
