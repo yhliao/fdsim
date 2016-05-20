@@ -1,8 +1,13 @@
+from __future__ import absolute_import, print_function, division
+
 import numpy as np
 
+from scipy import sparse as sp
+from scipy.sparse.linalg import spsolve
+
 from solver._solver import solver1D, solver2D
-from solver.util    import solve_diag2
-from solver.const   import *
+from solver.util    import myDamper
+from solver.const   import q , kBT
 mn = 1350000
 mp = 450000
 

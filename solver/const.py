@@ -4,7 +4,6 @@ import numpy as np
 q   = 1.6e-19 # C
 kBT = 8.6173324e-5 * 300 # eV
 ep0 = 8.852e-12 # F/m
-epr = 12 * ep0
 
 ### Nc calculation ###
 me  = 9.10938E-31 #kg
@@ -58,4 +57,17 @@ class SiO2:
       print "Edit const.py to change the parameters"
       raise AttributeError
 
-mdb = {"Si":Si(), "Ge":Ge(), "SiO2":SiO2()}
+class PZT:
+   __slots__=['type','epr','Eg','phiS']
+   type = 'insulator'
+   epr  = 100*ep0
+   Eg   = 3 # eV
+   phiS = 3
+   def __init__ (self):
+      pass
+   def __setattr__ (self,name,value):
+      print "Error!! all parameters of the material are constant"
+      print "Edit const.py to change the parameters"
+      raise AttributeError
+
+mdb = {"Si":Si(), "Ge":Ge(), "SiO2":SiO2(), "PZT":PZT()}

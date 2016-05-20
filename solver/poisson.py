@@ -142,8 +142,6 @@ class p_solver2D(solver2D):
       if len(self.contact['y']):
          cy= np.hstack([[j.idx, [j.material.epr] * len(j.idx)]
                          for j in self.contact['y']])
-      print (cx)
-      print (cy)
       row = np.concatenate((jx[0],jx[1],jy[0],jy[1],
                             nx[0],nx[1],ny[0],ny[1],
                             jx[1],jx[0],jy[1],jy[0],
@@ -154,10 +152,6 @@ class p_solver2D(solver2D):
                             nx[1],nx[0],ny[1],ny[0],
                             jx[1],jx[0],jy[1],jy[0],
                             nx[0],nx[1],ny[0],ny[1],cx[0],cy[0]))
-      print (jx[3])
-      print (jx[2])
-      print (jy[3])
-      print (jy[2])
       d0 = jx[3] / self.dx**2
       d1 = jx[2] / self.dx**2
       d2 = jy[3] / self.dy**2
@@ -176,7 +170,6 @@ class p_solver2D(solver2D):
       d16 = -cx[1] / self.dx**2
       d17 = -cy[1] / self.dy**2
 
-      print (nx[2],ny[2])
       d  = np.concatenate((d0,d1,d2,d3,d4,d5,d6,d7,
                            d8,d9,d10,d11,d12,d13,d14,d15,d16,d17))
       L  = sp.coo_matrix((d,(row,col)))
