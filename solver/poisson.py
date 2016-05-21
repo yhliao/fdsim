@@ -32,8 +32,7 @@ class p_solver1D(solver1D):
       if len(self.junc):
          jx = np.hstack([[[j[0]],
                           [j[1]],
-                          [j[2].epr],
-                          [j[3].epr]] for j in self.junc])
+                          [j[2].epr]] for j in self.junc])
       cx = np.zeros([2,0])
       if len(self.contact):
          cx = np.hstack([[[j.idx],
@@ -111,12 +110,12 @@ class p_solver2D(solver2D):
       for j in self.junc['x']:
          offset = -j[2].phiS + j[3].phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[3].epr * offset / (self.dx**2)
+            self.__Ecoff[j[0]] += j[2].epr * offset / (self.dx**2)
             self.__Ecoff[j[1]] -= j[2].epr * offset / (self.dx**2)
       for j in self.junc['y']:
          offset = -j[2].phiS + j[3].phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[3].epr * offset / (self.dy**2)
+            self.__Ecoff[j[0]] += j[2].epr * offset / (self.dy**2)
             self.__Ecoff[j[1]] -= j[2].epr * offset / (self.dy**2)
 
       ## use coordinate form to efficiently generate the matrix
@@ -128,13 +127,11 @@ class p_solver2D(solver2D):
       jx = jy = np.zeros([4,0])
       if len(self.junc['x']):
          jx = np.hstack([[ j[0], j[1],
-                          [j[2].epr] * len(j[0]),
-                          [j[3].epr] * len(j[0])]
+                          [j[2].epr] * len(j[0])]
                           for j in self.junc['x'] ])
       if len(self.junc['y']):
          jy = np.hstack([[ j[0], j[1],
-                          [j[2].epr] * len(j[0]),
-                          [j[3].epr] * len(j[0])]
+                          [j[2].epr] * len(j[0])]
                           for j in self.junc['y'] ])
 
       cx = cy = np.zeros([2,0])
@@ -144,41 +141,33 @@ class p_solver2D(solver2D):
       if len(self.contact['y']):
          cy= np.hstack([[j.idx, [j.material.epr] * len(j.idx)]
                          for j in self.contact['y']])
-      print (cx)
-      print (cy)
       row = np.concatenate((jx[0],jx[1],jy[0],jy[1],
                             nx[0],nx[1],ny[0],ny[1],
                             jx[1],jx[0],jy[1],jy[0],
                             nx[0],nx[1],ny[0],ny[1],cx[0],cy[0]))
 
-      print (row)
       col = np.concatenate((jx[1],jx[0],jy[1],jy[0],
                             nx[1],nx[0],ny[1],ny[0],
                             jx[1],jx[0],jy[1],jy[0],
                             nx[0],nx[1],ny[0],ny[1],cx[0],cy[0]))
-      print (jx[3])
-      print (jx[2])
-      print (jy[3])
-      print (jy[2])
-      d0 = jx[3] / self.dx**2
+      d0 = jx[2] / self.dx**2
       d1 = jx[2] / self.dx**2
-      d2 = jy[3] / self.dy**2
+      d2 = jy[2] / self.dy**2
       d3 = jy[2] / self.dy**2
 
       d4 = d5 = nx[2] / self.dx**2
       d6 = d7 = ny[2] / self.dy**2
 
       d8 = -jx[2] / self.dx**2
-      d9 = -jx[3] / self.dx**2
+      d9 = -jx[2] / self.dx**2
       d10= -jy[2] / self.dy**2
-      d11= -jy[3] / self.dy**2
+      d11= -jy[2] / self.dy**2
       
       d12 = d13 = -nx[2] / self.dx**2
       d14 = d15 = -ny[2] / self.dy**2
       d16 = -cx[1] / self.dx**2
       d17 = -cy[1] / self.dy**2
 
-      print (nx[2],ny[2])
       d  = np.concatenate((d0,d1,d2,d3,d4,d5,d6,d7,
                            d8,d9,d10,d11,d12,d13,d14,d15,d16,d17))
       L  = sp.coo_matrix((d,(row,col)))

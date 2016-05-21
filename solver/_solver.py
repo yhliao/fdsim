@@ -280,6 +280,7 @@ class solver1D(__solver):
                plt.plot(m.vx,m.__dict__[v],color=pcol[v])"""
       for v in vlist:
          plt.plot(self.__dict__[v],color=pcol[v])
+      plt.xlim([0,self.c_size])
       plt.show()
 
 #********** Base class for handling 2-D problem ***********
