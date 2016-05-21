@@ -7,51 +7,62 @@ from solver.util    import myDamper
 alpha = -4.89e7
 phiB = 0.7 # buit-in barrier
 #############################
-N   = 100
-ti  = 5
-tSi = 300
+base = 2
+N   = 400
+ti  = 10
+tSi = 100
 dx = 1e-9
+total = base + N + 2*ti + tSi
 s = p_solver1D(dx)
-m1 = s.add_mesh(ti ,0  ,'PZT')
+m0 = s.add_mesh(base,-base,'base')
+m1 = s.add_mesh(ti ,0  ,'PZTi')
 m2 = s.add_mesh(N  ,ti  ,'PZT')
-m3 = s.add_mesh(ti ,ti+N,'PZT')
+m3 = s.add_mesh(ti ,ti+N,'PZTi')
 m4 = s.add_mesh(tSi,2*ti+N,'Si')
 
-Ec_log = np.empty(N+2*ti+tSi)
-Ev_log = np.empty(N+2*ti+tSi)
-cl = s.add_contact(-1)
-cr = s.add_contact(N+2*ti+tSi)
+Ec_log = np.empty(total)
+Ev_log = np.empty(total)
+cl = s.add_contact(-base-1)
+cr = s.add_contact(N + 2*ti+tSi)
 s.construct_profile()
 doping = 1e18 * 1e6
 s.NB[2*ti+N:] = doping * q
+#s.visualize(['Ec','Ev','Efn'])
 ########################
-cl.V = -0
+#Q0 = 1e12*1e4*q
+#P0 = Q0 
+cl.V = -0.7
 cr.V = 0
-s.Efn[0:ti]  = cl.Ec  - phiB
-s.Efn[ti+N:] = cr.Ec  - 1.12/2 + kBT * np.log(doping/m4.material.ni)
-s.Efp[ti+N:] = cr.Ec  - 1.12/2 + kBT * np.log(doping/m4.material.ni)
+#s.Efn[0:ti+base]  = cl.Ec  - phiB
+Efr = cr.Ec - 1.12/2 + kBT * np.log(doping/m4.material.ni)
+s.Efn[base+ti+N:] = Efr
+s.Efp[base+ti+N:] = Efr
 s.reset_EcBV()
+#s.NB[base+ti]     = P0 / dx
+#s.NB[base+ti+N-1] = -P0 / dx
+
 s.solve_nlpoisson()
 Ec_log[:] = s.Ec
 Ev_log[:] = s.Ev
+s.write_mesh(['Ec','Ev','Efn'])
 s.visualize(['Ec','Ev','Efn'])
 s.visualize(['p'])
 err = 1
 D = myDamper(1)
-while err > 1e-3:
+"""while err > 1e-3:
    VFE = s.Ec[ti+N-1] - s.Ec[ti]
    P   = VFE / (2*(N*dx)*alpha)
    #P =0
    #Qitl = Ditl*(ps.Ec[LN+ti]  - ETL - Ef[LN+ti] )
    #Qitr = Ditr*(ps.Ec[N-1-ti]- ETR - Ef[N-1-ti] )
-   s.NB[ti]     = -P / dx
-   s.NB[ti+N-1] = P / dx
+   s.NB[base+ti]     = -P / dx
+   s.NB[base+ti+N-1] = P / dx
 
    s.solve_nlpoisson()
    err = max(abs(Ec_log - s.Ec))
    dE = (s.Ec-Ec_log) * D(err) / err
-   s.Ec = Ec_log + dE
-   s.Ev = Ev_log + dE
+   s.Ec[:] = Ec_log + dE
+   s.Ev[:] = Ev_log + dE
    print "err=%.10f" %err
    #ps.show()
    Ec_log[:] = s.Ec
@@ -60,4 +71,4 @@ while err > 1e-3:
 
 s.visualize(['Ec','Ev','Efn'])
 s.visualize(['p'])
-
+"""
