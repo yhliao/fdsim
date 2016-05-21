@@ -1,4 +1,4 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -138,7 +138,6 @@ class contact(object):
       self.idx      = idx
       self.material = m
       self.pflag    = flag
-
       self.Ec = V0 - m.phiS
       if m.type is "semiconductor":
          self.n  = m.ni
@@ -150,6 +149,13 @@ class contact(object):
    def V(self,v):
       self.Ec = V0 - self.material.phiS - v
 
+class contact1(object):
+   __slots__ = ['idx','material','pflag','Q']
+   def __init__(self,idx,m,flag):
+      self.idx      = idx
+      self.material = m
+      self.pflag    = flag
+      self.Q        = 0
 #********** Base class for handling 1-D problem ***********
 #* ** When handling heterojunctions, meshes with diffrent *
 #* materials should be added, their properties will be    *
@@ -160,13 +166,29 @@ class contact(object):
 class solver1D(__solver):
 
    class mesh1D(object):
-   ## this mesh doesn't contain calculable data (Ec,Ev,n,p,etc.)##
       def __init__ (self,dx,N,pos,material):
          self.pos = pos
          self.N   = N
          self.dx  = dx
          self.material = material
-         self.NB  = np.zeros(N)
+         self.NB = np.zeros(N)
+         self.Jn = np.zeros(N)
+         self.Jp = np.zeros(N)
+         self.Ec = (V0 - material.phiS) * np.ones(N)
+         self.Ev = self.Ec - material.Eg
+         if material.type == 'semiconductor' :
+            self.n    = material.ni * np.ones(N)
+            self.p    = material.ni * np.ones(N)
+            self.Efn  = (self.Ec + self.Ev) /2
+            self.Efp  = (self.Ec + self.Ev) /2
+            self.GRR  = np.zeros(N)
+         elif material.type == 'insulator' :
+            pass
+         else:
+            raise ValueError, \
+             "mesh2D() Error, material type (%s) unknown!"\
+              %(material.type)
+         self.vx = dx * (np.arange(N)+pos)
       def idxlog(self,startidx):
          self.l_idx = startidx
          self.r_idx = startidx + self.N-1
@@ -176,6 +198,7 @@ class solver1D(__solver):
 
    junc     = []
    contact  = []
+   contact1 = []
    neighbor = []
    def __init__ (self, dx) :
       self.dx = dx
@@ -202,26 +225,37 @@ class solver1D(__solver):
       self.c_size += N
       return new
 
-   def add_contact(self,x):
-      cix = len(self.contact)
+   def add_contact(self,x,type=0):
+      ci = [len(self.contact), len(self.contact1)]
       if any([m.pos<=x<=m.pos+m.N-1 for m in self.meshes]):
          raise ValueError,\
          ("error! contact should not overlap with meshes")
       for n,m in enumerate(self.meshes):
          if x == m.pos - 1:
-            print("solver1D.add_contact: contact #{} added"
+            print("solver1D.add_contact: type {} contact #{} added"
                   "\n\t*At left of mesh #{}"
-                  .format(cix,n))
-            new = contact(m.l_idx,m.material,0)
-            self.contact.append(new)
-            return new
+                  .format(type,ci[type],n))
+            if type is 0:
+               new = contact(m.l_idx,m.material,0)
+               self.contact.append(new)
+               return new
+            elif type is 1:
+               new = contact1(m.l_idx,m.material,0)
+               self.contact1.append(new)
+               return new
+
          if x == m.pos + m.N:
-            print("solver1D.add_contact: contact #{} added"
+            print("solver1D.add_contact: type {} contact #{} added"
                   "\n\t*At right of mesh #{}"
-                  .format(cix,n))
-            new = contact(m.r_idx,m.material,1)
-            self.contact.append(new)
-            return new
+                  .format(type,ci[type],n))
+            if type is 0:
+               new = contact(m.r_idx,m.material,1)
+               self.contact.append(new)
+               return new
+            elif type is 1:
+               new = contact1(m.r_idx,m.material,1)
+               self.contact1.append(new)
+               return new
       else:
          print("No connection with mesh detected, ignored")
 
@@ -239,9 +273,13 @@ class solver1D(__solver):
       print ("done")
 
    def visualize(self,vlist):
-      fig = plt.figure()
+      plt.figure()
+      """for m in self.meshes:
+         for v in vlist:
+            if hasattr(m,v):
+               plt.plot(m.vx,m.__dict__[v],color=pcol[v])"""
       for v in vlist:
-         plt.plot(self.__dict__[v],label=v,color=pcol[v])
+         plt.plot(self.__dict__[v],color=pcol[v])
       plt.show()
 
 #********** Base class for handling 2-D problem ***********
@@ -467,7 +505,7 @@ class solver2D(__solver):
       ax = fig.add_subplot(111, projection='3d')
       for m in self.meshes:
          for v in vlist:
-            if m.material.type == 'semiconductor':
+            if hasattr(m,v):
                ax.plot_surface(m.vx,m.vy,m.__dict__[v],\
                       rstride=2,cstride=2,color=pcol[v])
 

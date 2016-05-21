@@ -24,7 +24,7 @@ class p_solver1D(solver1D):
       for j in self.junc:
          offset = -j[2].phiS + j[3].phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[3].epr* offset / (self.dx**2)
+            self.__Ecoff[j[0]] += j[2].epr* offset / (self.dx**2)
             self.__Ecoff[j[1]] -= j[2].epr* offset / (self.dx**2)
 
       nx = self.neighbor
@@ -38,16 +38,16 @@ class p_solver1D(solver1D):
       if len(self.contact):
          cx = np.hstack([[[j.idx],
                           [j.material.epr]] for j in self.contact])
-
+      
       row = np.concatenate((jx[0],jx[1],nx[0],nx[1],
                             jx[1],jx[0],nx[0],nx[1],cx[0]))
       col = np.concatenate((jx[1],jx[0],nx[1],nx[0],
                             jx[1],jx[0],nx[0],nx[1],cx[0]))
-      d0 = jx[3] / self.dx**2
+      d0 = jx[2] / self.dx**2
       d1 = jx[2] / self.dx**2
       d2 = d3 = nx[2] / self.dx**2
       d4 = -jx[2] / self.dx**2
-      d5 = -jx[3] / self.dx**2
+      d5 = -jx[2] / self.dx**2
       d6 = d7 = -nx[2] / self.dx**2
       d8 = -cx[1] / self.dx**2
 
@@ -63,6 +63,8 @@ class p_solver1D(solver1D):
       self.__EcBV[:] = self.__Ecoff
       for c in self.contact :
          self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dx**2
+      for c in self.contact1 :
+         self.__EcBV[c.idx] += c.Q / self.dx
 
    def solve_lpoisson(self) :
       charge = q * (self.p - self.n)
