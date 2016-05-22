@@ -22,17 +22,17 @@ class p_solver1D(solver1D):
       self.NB *= q
 
       for j in self.junc:
-         offset = -j[2].phiS + j[3].phiS
+         offset = -j.m1.phiS + j.m2.phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[2].epr* offset / (self.dx**2)
-            self.__Ecoff[j[1]] -= j[2].epr* offset / (self.dx**2)
+            self.__Ecoff[j.idx1] += j.m1.epr* offset / (self.dx**2)
+            self.__Ecoff[j.idx2] -= j.m1.epr* offset / (self.dx**2)
 
       nx = self.neighbor
       jx = np.zeros([4,0])
       if len(self.junc):
-         jx = np.hstack([[[j[0]],
-                          [j[1]],
-                          [j[2].epr]] for j in self.junc])
+         jx = np.hstack([[[j.idx1],
+                          [j.idx2],
+                          [j.m1.epr]] for j in self.junc])
       cx = np.zeros([2,0])
       if len(self.contact):
          cx = np.hstack([[[j.idx],
@@ -42,15 +42,15 @@ class p_solver1D(solver1D):
                             jx[1],jx[0],nx[0],nx[1],cx[0]))
       col = np.concatenate((jx[1],jx[0],nx[1],nx[0],
                             jx[1],jx[0],nx[0],nx[1],cx[0]))
-      d0 = jx[2] / self.dx**2
-      d1 = jx[2] / self.dx**2
-      d2 = d3 = nx[2] / self.dx**2
-      d4 = -jx[2] / self.dx**2
-      d5 = -jx[2] / self.dx**2
-      d6 = d7 = -nx[2] / self.dx**2
-      d8 = -cx[1] / self.dx**2
-
-      d  = np.concatenate((d0,d1,d2,d3,d4,d5,d6,d7,d8))
+      d = [None] * 9
+      d[0] = jx[2] / self.dx**2
+      d[1] = jx[2] / self.dx**2
+      d[2] = d[3] = nx[2] / self.dx**2
+      d[4] = -jx[2] / self.dx**2
+      d[5] = -jx[2] / self.dx**2
+      d[6] = d[7] = -nx[2] / self.dx**2
+      d[8] = -cx[1] / self.dx**2
+      d  = np.concatenate(d)
       
       L  = sp.coo_matrix((d,(row,col)))
       self.__L =  L.tocsr()
@@ -71,6 +71,8 @@ class p_solver1D(solver1D):
       self.Ev += Ec_new - self.Ec
       self.Ec[:] = Ec_new
 
+   def set_Dit(self,pos,Et,Dit) :
+      pass
    def solve_nlpoisson(self,tol=1e-5) :
       D = myDamper(1)
       dEc = np.zeros(self.c_size)
@@ -108,15 +110,15 @@ class p_solver2D(solver2D):
 
       ## Handling Ec boundary offset
       for j in self.junc['x']:
-         offset = -j[2].phiS + j[3].phiS
+         offset = -j.m1.phiS + j.m2.phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[2].epr * offset / (self.dx**2)
-            self.__Ecoff[j[1]] -= j[2].epr * offset / (self.dx**2)
+            self.__Ecoff[j.idx1] += j.m1.epr * offset / (self.dx**2)
+            self.__Ecoff[j.idx2] -= j.m1.epr * offset / (self.dx**2)
       for j in self.junc['y']:
-         offset = -j[2].phiS + j[3].phiS
+         offset = -j.m1.phiS + j.m2.phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[2].epr * offset / (self.dy**2)
-            self.__Ecoff[j[1]] -= j[2].epr * offset / (self.dy**2)
+            self.__Ecoff[j.idx1] += j.m1.epr * offset / (self.dy**2)
+            self.__Ecoff[j.idx2] -= j.m1.epr * offset / (self.dy**2)
 
       ## use coordinate form to efficiently generate the matrix
       ## then convert to csr form
@@ -126,12 +128,12 @@ class p_solver2D(solver2D):
       ny= self.neighbor['y']
       jx = jy = np.zeros([4,0])
       if len(self.junc['x']):
-         jx = np.hstack([[ j[0], j[1],
-                          [j[2].epr] * len(j[0])]
+         jx = np.hstack([[ j.idx1, j.idx2,
+                          [j.m1.epr] * len(j)]
                           for j in self.junc['x'] ])
       if len(self.junc['y']):
-         jy = np.hstack([[ j[0], j[1],
-                          [j[2].epr] * len(j[0])]
+         jy = np.hstack([[ j.idx1, j.idx2,
+                          [j.m1.epr] * len(j)]
                           for j in self.junc['y'] ])
 
       cx = cy = np.zeros([2,0])
@@ -150,26 +152,27 @@ class p_solver2D(solver2D):
                             nx[1],nx[0],ny[1],ny[0],
                             jx[1],jx[0],jy[1],jy[0],
                             nx[0],nx[1],ny[0],ny[1],cx[0],cy[0]))
-      d0 = jx[2] / self.dx**2
-      d1 = jx[2] / self.dx**2
-      d2 = jy[2] / self.dy**2
-      d3 = jy[2] / self.dy**2
+      d = [None]*18
+      d[0] = jx[2] / self.dx**2
+      d[1] = jx[2] / self.dx**2
+      d[2] = jy[2] / self.dy**2
+      d[3] = jy[2] / self.dy**2
 
-      d4 = d5 = nx[2] / self.dx**2
-      d6 = d7 = ny[2] / self.dy**2
+      d[4] = d[5] = nx[2] / self.dx**2
+      d[6] = d[7] = ny[2] / self.dy**2
 
-      d8 = -jx[2] / self.dx**2
-      d9 = -jx[2] / self.dx**2
-      d10= -jy[2] / self.dy**2
-      d11= -jy[2] / self.dy**2
+      d[8] = -jx[2] / self.dx**2
+      d[9] = -jx[2] / self.dx**2
+      d[10]= -jy[2] / self.dy**2
+      d[11]= -jy[2] / self.dy**2
       
-      d12 = d13 = -nx[2] / self.dx**2
-      d14 = d15 = -ny[2] / self.dy**2
-      d16 = -cx[1] / self.dx**2
-      d17 = -cy[1] / self.dy**2
+      d[12] = d[13] = -nx[2] / self.dx**2
+      d[14] = d[15] = -ny[2] / self.dy**2
+      d[16] = -cx[1] / self.dx**2
+      d[17] = -cy[1] / self.dy**2
 
-      d  = np.concatenate((d0,d1,d2,d3,d4,d5,d6,d7,
-                           d8,d9,d10,d11,d12,d13,d14,d15,d16,d17))
+      d  = np.concatenate(d)
+
       L  = sp.coo_matrix((d,(row,col)))
       self.__L =  L.tocsr()
       del L

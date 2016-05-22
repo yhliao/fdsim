@@ -12,6 +12,48 @@ V0   =  4.5
 pcol = {'Ec' :'blue','Ev' :'green',
         'n'  :'red' ,'p'  :'yellow',
         'Efn':'red' ,'Efp':'yellow'}
+
+class junction(object):
+   def __init__(self,idx1,idx2,m1,m2):
+      if not (type(idx1) is int and type(idx2) is int):
+         assert len(idx1) == len(idx2),\
+            ("Error!!, index length doesn't match")
+      self.idx1 = idx1
+      self.idx2 = idx2
+      self.m1   = m1
+      self.m2   = m2
+   def __len__(self):
+      if type(self.idx1) is int:
+         return 1
+      else:
+         return len(self.idx1)
+
+class contact(object):
+   __slots__ = ['idx','material','pflag','Ec','n','p']
+   def __init__(self,idx,m,flag):
+      self.idx      = idx
+      self.material = m
+      self.pflag    = flag
+      self.Ec = V0 - m.phiS
+      if m.type is "semiconductor":
+         self.n  = m.ni
+         self.p  = m.ni
+   @property
+   def V(self):
+      return V0 - (self.Ec + self.material.phiS)
+   @V.setter
+   def V(self,v):
+      self.Ec = V0 - self.material.phiS - v
+
+## NOTE: only supported by 1-D solver
+class contact1(object):
+   __slots__ = ['idx','material','pflag','Q']
+   def __init__(self,idx,m,flag):
+      self.idx      = idx
+      self.material = m
+      self.pflag    = flag
+      self.Q        = 0
+
 #************* Base class for all solvers  ****************
 #* ** It defines the common routines which will be used   *
 #* to construct and manage the 1-D representative vectors *
@@ -132,30 +174,6 @@ class __solver(object):
    def visualize(self,vlist):
       pass
 
-class contact(object):
-   __slots__ = ['idx','material','pflag','Ec','n','p']
-   def __init__(self,idx,m,flag):
-      self.idx      = idx
-      self.material = m
-      self.pflag    = flag
-      self.Ec = V0 - m.phiS
-      if m.type is "semiconductor":
-         self.n  = m.ni
-         self.p  = m.ni
-   @property
-   def V(self):
-      return V0 - (self.Ec + self.material.phiS)
-   @V.setter
-   def V(self,v):
-      self.Ec = V0 - self.material.phiS - v
-
-class contact1(object):
-   __slots__ = ['idx','material','pflag','Q']
-   def __init__(self,idx,m,flag):
-      self.idx      = idx
-      self.material = m
-      self.pflag    = flag
-      self.Q        = 0
 #********** Base class for handling 1-D problem ***********
 #* ** When handling heterojunctions, meshes with diffrent *
 #* materials should be added, their properties will be    *
@@ -214,13 +232,15 @@ class solver1D(__solver):
       for m in self.meshes:
          ##### left junction #####
          if pos == m.pos + m.N:
-            print ("\t*Junction at left of the new mesh detected")
-            self.junc.append([m.r_idx,    new.l_idx,
-                              m.material, new.material])
+            print ("\t*Junction at left of the new mesh detected:"
+                   " logged as junc[{}]".format(len(self.junc)))
+            self.junc.append(junction(m.r_idx,new.l_idx,
+                              m.material, new.material))
          if pos + N == m.pos:
-            print ("\t*Junction at right of the new mesh detected")
-            self.junc.append([new.r_idx,    m.l_idx,
-                              new.material, m.material.phiS])
+            print ("\t*Junction at right of the new mesh detected:"
+                  " logged as junc[{}]".format(len(self.junc)))
+            self.junc.append(junction(new.r_idx,m.l_idx,
+                              new.material, m.material.phiS))
       self.meshes.append(new)
       self.c_size += N
       return new
@@ -374,17 +394,22 @@ class solver2D(__solver):
                assert len(new.t_idx[i:k]) == len(m.b_idx[j:l])
                print ("\t*Junction at top of the new mesh: "
                 "overlap length=", len(new.t_idx[i:k]))
-               self.junc['x'].append([m.  b_idx[j:l],
-                                      new.t_idx[i:k],
-                                      m.material, new.material])
+               print ("\t --> logged as junc['x'][{}]"
+                      .format(len(self.junc['x'])))
+               self.junc['x'].append(junction(m.  b_idx[j:l],
+                                              new.t_idx[i:k],
+                                      m.material, new.material))
+
             ###### bottom junction #####
             elif pos[0] + N[0] == m.pos[0]:
                assert len(new.b_idx[i:k]) == len(m.t_idx[j:l])
                print ("\t*Junction at bottom of the new mesh: "
                 "overlap lenth=", len(new.b_idx[i:k]))
-               self.junc['x'].append([new.b_idx[i:k],
-                                      m.  t_idx[j:l],
-                                      new.material, m.material])
+               print ("\t --> logged as junc['x'][{}]"
+                      .format(len(self.junc['x'])))
+               self.junc['x'].append(junction(new.b_idx[i:k],
+                                              m.  t_idx[j:l],
+                                      new.material, m.material))
 
          ###### junction at left or right of the new mesh ######
          if overlap(pos[0],N[0],m.pos[0],m.N[0]):
@@ -394,17 +419,21 @@ class solver2D(__solver):
                assert len(new.r_idx[i:k]) == len(m.l_idx[j:l])
                print ("\t*Junction at right of the new mesh:",
                 "overlap lenth=", len(new.r_idx[i:k]))
-               self.junc['y'].append([new.r_idx[i:k],
-                                      m.  l_idx[j:l],
-                                      new.material, m.material])
+               print ("\t --> logged as junc['y'][{}]"
+                      .format(len(self.junc['y'])))
+               self.junc['y'].append(junction(new.r_idx[i:k],
+                                              m.  l_idx[j:l],
+                                      new.material, m.material))
             ###### left junction #######
             elif pos[1] == m.pos[1] + m.N[1]:
                assert len(new.l_idx[i:k]) == len(m.r_idx[j:l])
                print ("\t*Junction at left of the new mesh:",
                 "overlap lenth=", len(new.l_idx[i:k]))
-               self.junc['y'].append([m.  r_idx[j:l],
-                                      new.l_idx[i:k],
-                                      m.material, new.material])
+               print ("\t --> logged as junc['y'][{}]"
+                      .format(len(self.junc['y'])))
+               self.junc['y'].append(junction(m.  r_idx[j:l],
+                                              new.l_idx[i:k],
+                                      m.material, new.material))
 
       self.meshes.append(new)
       self.c_size += N[0] * N[1]
