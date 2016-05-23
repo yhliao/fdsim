@@ -45,7 +45,7 @@ class p_solver1D(solver1D):
       print ("done, __L.shape=",self.__L.shape )
       # __L * Ec = (NB+n-p)*q/epr - __EcBV
       del L,d
-
+      
    def reset_EcBV(self) : 
       self.__EcBV[:] = self.__Ecoff
       for c in self.contact :
@@ -66,8 +66,10 @@ class p_solver1D(solver1D):
       time = 0
       while abs(err) >tol :
          self.calc_np()
-         charge = q * (self.p - self.n)
-         LL = self.__L + sp.diags(charge,0,format='csr') *(q/kBT)
+         self.calc_it()
+         charge = q * (self.p - self.n + self.Qit)
+         LL = self.__L + sp.diags(charge*(q/kBT) - self.Dit*q,0
+                                  ,format='csr')
          Laplacian = self.__L * self.Ec + self.__EcBV 
          dEc[:] = spsolve( LL , self.NB + charge - Laplacian)
 
@@ -139,10 +141,9 @@ class p_solver2D(solver2D):
 
       L  = sp.coo_matrix((d,(self.op_row,self.op_col)))
       self.__L =  L.tocsr()
-      del L, d
       print ("done, __L.shape=",self.__L.shape )
-
       # __L * Ec = (NB+n-p)*q/epr - __EcBV
+      del L, d
 
    def reset_EcBV(self) :
       self.__EcBV[:] = self.__Ecoff

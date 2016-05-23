@@ -9,10 +9,14 @@ from solver.const import kBT, mdb
 from solver.util import overlap, calc_offset
 
 V0   =  4.5
-pcol = {'Ec' :'blue','Ev' :'green',
-        'n'  :'red' ,'p'  :'yellow',
-        'Efn':'red' ,'Efp':'yellow'}
+pcol = { 'Ec' :'blue','Ev' :'green' ,
+         'n'  :'red' ,'p'  :'yellow',
+         'Efn':'red' ,'Efp':'yellow' }
 
+#******* Classes for handling junctions & contacts  *******
+#* **They contain the properties of a junction or contact *
+#* needed for handling and solving the problems           *
+#**********************************************************
 class junction(object):
    def __init__(self,idx1,idx2,m1,m2):
       if type(idx1) is int and type(idx2) is int:
@@ -24,17 +28,16 @@ class junction(object):
       self.m   = [m1,m2]
 
       ### Dit handling ###
-      self.Dit1 = 0
-      self.Dit2 = 0
-      self.Et1  = m1.Eg/2
-      self.Et2  = m2.Eg/2
+      self.Dit = [None    ,None]
+      self.Et  = [m1.Eg/2 ,m2.Eg/2]
    def isins(self):
       return not all([m.type is "semiconductor" for m in self.m])
    def __len__(self):
-      if type(self.idx[0]) is int:
-         return 1
-      else:
-         return len(self.idx[0])
+      return len(self.idx[0])
+   def set_it(self,i,dist,Et):
+      assert i == 0 or i ==1
+      self.Dit[i] = dist
+      self.Et [i] = Et
 
 class contact(object):
    __slots__ = ['idx','material','pflag','Ec','n','p']
@@ -52,7 +55,8 @@ class contact(object):
    @V.setter
    def V(self,v):
       self.Ec = V0 - self.material.phiS - v
-
+   #@property
+   #def Q(self):
 
 class contact1(object):
    ## NOTE: only supported by 1-D solver
@@ -93,6 +97,8 @@ class __solver(object):
       self.Efp  = np.zeros(self.c_size) 
       self.n    = np.zeros(self.c_size) 
       self.p    = np.zeros(self.c_size) 
+      self.Qit  = np.zeros(self.c_size) 
+      self.Dit  = np.zeros(self.c_size) 
       x = 0
       for i,m in enumerate(self.meshes):
          y = x + m.size
@@ -244,12 +250,12 @@ class solver1D(__solver):
             print ("\t*Junction at left of the new mesh detected:"
                    " logged as junc[{}]".format(len(self.junc)))
             self.junc.append(junction(m.r_idx,new.l_idx,
-                              m.material, new.material))
+                                      m.material, new.material))
          if pos + N == m.pos:
             print ("\t*Junction at right of the new mesh detected:"
                   " logged as junc[{}]".format(len(self.junc)))
             self.junc.append(junction(new.r_idx,m.l_idx,
-                              new.material, m.material.phiS))
+                                      new.material, m.material))
       self.meshes.append(new)
       self.c_size += N
       return new
@@ -287,6 +293,14 @@ class solver1D(__solver):
                return new
       else:
          print("No connection with mesh detected, ignored")
+
+   def calc_it(self):
+      for j in self.junc:
+         for i in [0,1]:
+            if not j.Dit[i] is None:
+               self.Qit[j.idx[i]] = j.Dit[i] * \
+                                    (self.Ec[j.idx[i]] -j.Et[i] - self.Efn[j.idx[i]]) / self.dx
+               self.Dit[j.idx[i]] = j.Dit[i]
 
    def construct_profile(self):
       super(solver1D,self).construct_profile()
