@@ -15,18 +15,26 @@ pcol = {'Ec' :'blue','Ev' :'green',
 
 class junction(object):
    def __init__(self,idx1,idx2,m1,m2):
-      if not (type(idx1) is int and type(idx2) is int):
+      if type(idx1) is int and type(idx2) is int:
+         self.idx = [[idx1],[idx2]]
+      else:
          assert len(idx1) == len(idx2),\
             ("Error!!, index length doesn't match")
-      self.idx1 = idx1
-      self.idx2 = idx2
-      self.m1   = m1
-      self.m2   = m2
+         self.idx = [idx1, idx2]
+      self.m   = [m1,m2]
+
+      ### Dit handling ###
+      self.Dit1 = 0
+      self.Dit2 = 0
+      self.Et1  = m1.Eg/2
+      self.Et2  = m2.Eg/2
+   def isins(self):
+      return not all([m.type is "semiconductor" for m in self.m])
    def __len__(self):
-      if type(self.idx1) is int:
+      if type(self.idx[0]) is int:
          return 1
       else:
-         return len(self.idx1)
+         return len(self.idx[0])
 
 class contact(object):
    __slots__ = ['idx','material','pflag','Ec','n','p']
@@ -45,8 +53,9 @@ class contact(object):
    def V(self,v):
       self.Ec = V0 - self.material.phiS - v
 
-## NOTE: only supported by 1-D solver
+
 class contact1(object):
+   ## NOTE: only supported by 1-D solver
    __slots__ = ['idx','material','pflag','Q']
    def __init__(self,idx,m,flag):
       self.idx      = idx
@@ -284,13 +293,29 @@ class solver1D(__solver):
       print ("logging indice of neighboring pairs",end='...')
       nn = []
       for m in self.meshes:
-         n = np.empty([3,m.N-1])
+         n = np.empty([2,m.N-1])
          n[0,:] = np.arange(m.l_idx,m.r_idx,dtype=int)
          n[1,:] = n[0,:]+1
-         n[2,:] = m.material.epr 
          nn.append(n)
-      self.neighbor = np.hstack([n for n in nn])
+      self.neighbor = nx = np.hstack([n for n in nn])
       print ("done")
+
+      print ("logging indice of jundction pairs",end='...')
+      jx = np.zeros([2,0])
+      if len(self.junc):
+         jx = np.hstack([ j.idx for j in self.junc ])
+      print ("done")
+
+      print ("logging indice of all contacts",end='...')
+      cx = np.zeros(0)
+      if len(self.contact):
+         cx= [c.idx for c in self.contact]
+      print ("done")
+
+      self.op_row = np.concatenate((jx[0],jx[1],nx[0],nx[1],
+                                    jx[1],jx[0],nx[0],nx[1],cx))
+      self.op_col = np.concatenate((jx[1],jx[0],nx[1],nx[0],
+                                    jx[1],jx[0],nx[0],nx[1],cx))
 
    def visualize(self,vlist):
       plt.figure()
@@ -507,24 +532,49 @@ class solver2D(__solver):
 
    def construct_profile(self):
       super(solver2D,self).construct_profile()
-      print ("logging indice of neighboring pairs",end='...')
+      print ("logging indice of neighboring pairs inside",end='...')
       nn = {'x':[],'y':[]}
       for m in self.meshes:
-         xx = np.zeros([3,m.Ny*(m.Nx-1)])
-         yy = np.zeros([3,m.Nx*(m.Ny-1)])
+         xx = np.zeros([2,m.Ny*(m.Nx-1)])
+         yy = np.zeros([2,m.Nx*(m.Ny-1)])
          for i in range(m.Nx-1) :
             xx[0,i*m.Ny:(i+1)*m.Ny] = m.t_idx + i*m.Ny
          xx[1,:] = xx[0,:] + m.Ny
-         xx[2,:] = m.material.epr
          for i in range(m.Ny-1) :
             yy[0,i*m.Nx:(i+1)*m.Nx] = m.l_idx + i
          yy[1,:] = yy[0,:] + 1
-         yy[2,:] = m.material.epr
          nn['x'].append(xx)
          nn['y'].append(yy)
-      self.neighbor['x'] = np.hstack([n for n in nn['x']])
-      self.neighbor['y'] = np.hstack([n for n in nn['y']])
+      self.neighbor['x'] = nx = np.hstack([n for n in nn['x']])
+      self.neighbor['y'] = ny = np.hstack([n for n in nn['y']])
       print ("done")
+
+      print ("logging indice of jundction pairs",end='...')
+      jx = jy = np.zeros([2,0])
+      if len(self.junc['x']):
+         jx = np.hstack([ j.idx for j in self.junc['x'] ])
+      if len(self.junc['y']):
+         jy = np.hstack([ j.idx for j in self.junc['y'] ])
+      print ("done")
+
+      print ("logging indice of all contacts",end='...')
+      cx = cy = np.zeros(0)
+      if len(self.contact['x']):
+         cx= np.concatenate([c.idx for c in self.contact['x']])
+      if len(self.contact['y']):
+         cy= np.concatenate([c.idx for c in self.contact['y']])
+      print ("done")
+
+      ### for creating operator matrice in the future
+      self.op_row = np.concatenate((jx[0],jx[1],jy[0],jy[1],
+                                    nx[0],nx[1],ny[0],ny[1],
+                                    jx[1],jx[0],jy[1],jy[0],
+                                    nx[0],nx[1],ny[0],ny[1],cx,cy))
+
+      self.op_col = np.concatenate((jx[1],jx[0],jy[1],jy[0],
+                                    nx[1],nx[0],ny[1],ny[0],
+                                    jx[1],jx[0],jy[1],jy[0],
+                                    nx[0],nx[1],ny[0],ny[1],cx,cy))
 
    #############################################################
    ##        Visulization of the semiconductor meshes         ##
