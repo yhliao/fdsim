@@ -4,16 +4,16 @@ from __future__ import division, print_function
 import argparse
 from sys import argv
 parser = argparse.ArgumentParser()
-parser.add_argument('--Dit' ,default=0,type=float)
+parser.add_argument('--Dit' ,default=0E0,type=float)
 parser.add_argument('--tPZT',required=True,type=int)
 parser.add_argument('--ND'  ,required=True,type=float)
 config = parser.parse_args(argv[1:])
 
 import numpy as np
-from xlutils.copy import copy
+from   xlutils.copy import copy
 import xlwt, xlrd
 
-from solver.const    import q, kBT
+from solver.const   import q, kBT
 from solver.poisson import p_solver1D
 from solver.util    import myDamper
 
@@ -26,7 +26,7 @@ ti  = 5
 tSi = 50
 dx = 1e-9
 total = base + N + 2*ti + tSi
-filename = "PZT_stack_QV({}_{}nm).xls".format(config.ND,N)
+filename = "DATA/PZT_stack_QV({}_{}nm).xls".format(config.ND,N)
 try:
    rb = xlrd.open_workbook(filename)
    wb = copy(rb)
