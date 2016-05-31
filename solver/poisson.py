@@ -30,15 +30,14 @@ class p_solver1D(solver1D):
 
       dnx = np.concatenate([ [m.material.epr/self.dx**2] * (m.N-1)
                              for m in self.meshes ])
-      djx = np.zeros(0)
+      dj = dc = np.zeros(0)
       if len(self.junc):
-         djx = np.array([j.m[0].epr/self.dx**2 for j in self.junc])
-      dcx = np.zeros(0)
+         dj = np.array([j.m[0].epr/j.d**2 for j in self.junc])
       if len(self.contact):
-         dcx = [-j.m.epr/self.dx**2 for j in self.contact]
+         dc = [-c.m.epr/c.d**2 for c in self.contact]
 
-      d  = np.concatenate(( djx, djx, dnx, dnx,
-                           -djx,-djx,-dnx,-dnx,dcx))
+      d  = np.concatenate(( dj, dj,-dj,-dj,
+                            dnx, dnx,-dnx,-dnx,dc))
       
       L  = sp.coo_matrix((d,(self.op_row,self.op_col)))
       self.__L =  L.tocsr()
@@ -113,18 +112,16 @@ class p_solver2D(solver2D):
                             (m.Ny*(m.Nx-1)) for m in self.meshes])
       dny = np.concatenate([ [m.material.epr/self.dy**2] *
                             (m.Nx*(m.Ny-1)) for m in self.meshes])
-      dj = np.zeros(0)
+      dj = dc = np.zeros(0)
       if len(self.junc):
          dj = np.concatenate([ [j.m[0].epr/j.d**2] * len(j)
                                         for j in self.junc])
-      dc = np.zeros(0)
       if len(self.contact):
-         dc = np.hstack([[-j.m.epr/j.d**2] * len(j.idx)
-                                        for j in self.contact])
+         dc = np.hstack([[-c.m.epr/c.d**2] * len(c.idx)
+                                        for c in self.contact])
 
-      d  = np.concatenate(( dj, dj, 
+      d  = np.concatenate(( dj, dj, -dj, -dj, 
                             dnx, dnx, dny, dny,
-                           -dj,-dj,
                            -dnx,-dnx,-dny,-dny, dc))
 
       L  = sp.coo_matrix((d,(self.op_row,self.op_col)))

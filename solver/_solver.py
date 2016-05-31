@@ -322,21 +322,21 @@ class solver1D(__solver):
       print ("done")
 
       print ("logging indice of jundction pairs",end='...')
-      jx = np.zeros([2,0])
+      j = np.zeros([2,0])
       if len(self.junc):
-         jx = np.hstack([ j.idx for j in self.junc ])
+         j = np.hstack([ j.idx for j in self.junc ])
       print ("done")
 
       print ("logging indice of all contacts",end='...')
-      cx = np.zeros(0)
+      c = np.zeros(0)
       if len(self.contact):
-         cx= [c.idx for c in self.contact]
+         c= [c.idx for c in self.contact]
       print ("done")
 
-      self.op_row = np.concatenate((jx[0],jx[1],nx[0],nx[1],
-                                    jx[1],jx[0],nx[0],nx[1],cx))
-      self.op_col = np.concatenate((jx[1],jx[0],nx[1],nx[0],
-                                    jx[1],jx[0],nx[0],nx[1],cx))
+      self.op_row = np.concatenate((j[0],j[1],j[1],j[0],
+                                    nx[0],nx[1],nx[0],nx[1],c))
+      self.op_col = np.concatenate((j[1],j[0],j[1],j[0],
+                                    nx[1],nx[0],nx[0],nx[1],c))
 
    def visualize(self,vlist):
       plt.figure()
@@ -582,14 +582,12 @@ class solver2D(__solver):
       print ("done")
 
       ### for creating operator matrice in the future
-      self.op_row = np.concatenate((j[0],j[1],
+      self.op_row = np.concatenate((j[0],j[1],j[1],j[0],
                                     nx[0],nx[1],ny[0],ny[1],
-                                    j[1],j[0],
                                     nx[0],nx[1],ny[0],ny[1],c))
 
-      self.op_col = np.concatenate((j[1],j[0],
+      self.op_col = np.concatenate((j[1],j[0],j[1],j[0],
                                     nx[1],nx[0],ny[1],ny[0],
-                                    j[1],j[0],
                                     nx[0],nx[1],ny[0],ny[1],c))
 
    #############################################################
