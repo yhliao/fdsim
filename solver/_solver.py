@@ -18,7 +18,7 @@ pcol = { 'Ec' :'blue','Ev' :'green' ,
 #* needed for handling and solving the problems           *
 #**********************************************************
 class junction(object):
-   def __init__(self,idx1,idx2,m1,m2):
+   def __init__(self,idx1,idx2,m1,m2,d):
       if type(idx1) is int and type(idx2) is int:
          self.idx = [[idx1],[idx2]]
       else:
@@ -26,7 +26,7 @@ class junction(object):
             ("Error!!, index length doesn't match")
          self.idx = [idx1, idx2]
       self.m   = [m1,m2]
-
+      self.d   = d
       ### Dit handling ###
       self.Dit = [None    ,None]
       self.Et  = [m1.Eg/2 ,m2.Eg/2]
@@ -40,33 +40,40 @@ class junction(object):
       self.Et [i] = Et
 
 class contact(object):
-   __slots__ = ['idx','material','pflag','Ec','n','p']
-   def __init__(self,idx,m,flag):
-      self.idx      = idx
-      self.material = m
-      self.pflag    = flag
+   __slots__ = ['idx','m','d','pflag','Ec','n','p']
+   def __init__(self,idx,m,d,pflag):
+      assert pflag == 1 or pflag == -1
+      self.idx   = idx
+      self.m     = m
+      self.d     = d
+      self.pflag = pflag
       self.Ec = V0 - m.phiS
       if m.type is "semiconductor":
          self.n  = m.ni
          self.p  = m.ni
    @property
    def V(self):
-      return V0 - (self.Ec + self.material.phiS)
+      return V0 - (self.Ec + self.m.phiS)
    @V.setter
    def V(self,v):
-      self.Ec = V0 - self.material.phiS - v
-   #@property
-   #def Q(self):
+      self.Ec = V0 - self.m.phiS - v
+   def __len__(self):
+      if type(self.idx) is int:
+         return 1
+      else:
+         return len(self.idx[0])
+   def isins(self):
+      return (self.m.type is "insulator")
 
 class contact1(object):
    ## NOTE: only supported by 1-D solver
-   __slots__ = ['idx','material','pflag','Q']
-   def __init__(self,idx,m,flag):
-      self.idx      = idx
-      self.material = m
-      self.pflag    = flag
-      self.Q        = 0
-
+   __slots__ = ['idx','m','pflag','Q','d']
+   def __init__(self,idx,m,d,flag):
+      self.idx   = idx
+      self.m     = m
+      self.pflag = flag
+      self.Q     = 0
+      self.d     = d
 #************* Base class for all solvers  ****************
 #* ** It defines the common routines which will be used   *
 #* to construct and manage the 1-D representative vectors *
@@ -250,12 +257,12 @@ class solver1D(__solver):
             print ("\t*Junction at left of the new mesh detected:"
                    " logged as junc[{}]".format(len(self.junc)))
             self.junc.append(junction(m.r_idx,new.l_idx,
-                                      m.material, new.material))
+                              m.material, new.material,self.dx))
          if pos + N == m.pos:
             print ("\t*Junction at right of the new mesh detected:"
                   " logged as junc[{}]".format(len(self.junc)))
             self.junc.append(junction(new.r_idx,m.l_idx,
-                                      new.material, m.material))
+                              new.material, m.material,self.dx))
       self.meshes.append(new)
       self.c_size += N
       return new
@@ -271,11 +278,11 @@ class solver1D(__solver):
                   "\n\t*At left of mesh #{}"
                   .format(type,ci[type],n))
             if type is 0:
-               new = contact(m.l_idx,m.material,0)
+               new = contact(m.l_idx,m.material,self.dx,-1)
                self.contact.append(new)
                return new
             elif type is 1:
-               new = contact1(m.l_idx,m.material,0)
+               new = contact1(m.l_idx,m.material,self.dx,-1)
                self.contact1.append(new)
                return new
 
@@ -284,11 +291,11 @@ class solver1D(__solver):
                   "\n\t*At right of mesh #{}"
                   .format(type,ci[type],n))
             if type is 0:
-               new = contact(m.r_idx,m.material,1)
+               new = contact(m.r_idx,m.material,self.dx,1)
                self.contact.append(new)
                return new
             elif type is 1:
-               new = contact1(m.r_idx,m.material,1)
+               new = contact1(m.r_idx,m.material,self.dx,1)
                self.contact1.append(new)
                return new
       else:
@@ -300,7 +307,7 @@ class solver1D(__solver):
             if not j.Dit[i] is None:
                self.Qit[j.idx[i]] = j.Dit[i] * \
                                     (self.Ec[j.idx[i]] -j.Et[i] - self.Efn[j.idx[i]]) / self.dx
-               self.Dit[j.idx[i]] = j.Dit[i]
+               self.Dit[j.idx[i]] = j.Dit[i] / self.dx
 
    def construct_profile(self):
       super(solver1D,self).construct_profile()
@@ -400,8 +407,8 @@ class solver2D(__solver):
 
    # will be used in constructing operator matrice
    # each entry of the list contain indice and material type
-   junc     = {'x':[], 'y':[]}
-   contact  = {'x':[], 'y':[]}
+   junc     = []
+   contact  = []
    # containing the indice of neighboring pair
    neighbor = {'x':[], 'y':[]}
    def __init__ (self, dx, dy) :
@@ -433,22 +440,22 @@ class solver2D(__solver):
                assert len(new.t_idx[i:k]) == len(m.b_idx[j:l])
                print ("\t*Junction at top of the new mesh: "
                 "overlap length=", len(new.t_idx[i:k]))
-               print ("\t --> logged as junc['x'][{}]"
-                      .format(len(self.junc['x'])))
-               self.junc['x'].append(junction(m.  b_idx[j:l],
-                                              new.t_idx[i:k],
-                                      m.material, new.material))
+               print ("\t --> logged as junc[{}]"
+                      .format(len(self.junc)))
+               self.junc.append(junction(m.  b_idx[j:l],
+                                         new.t_idx[i:k],
+                               m.material, new.material,self.dx))
 
             ###### bottom junction #####
             elif pos[0] + N[0] == m.pos[0]:
                assert len(new.b_idx[i:k]) == len(m.t_idx[j:l])
                print ("\t*Junction at bottom of the new mesh: "
                 "overlap lenth=", len(new.b_idx[i:k]))
-               print ("\t --> logged as junc['x'][{}]"
-                      .format(len(self.junc['x'])))
-               self.junc['x'].append(junction(new.b_idx[i:k],
-                                              m.  t_idx[j:l],
-                                      new.material, m.material))
+               print ("\t --> logged as junc[{}]"
+                      .format(len(self.junc)))
+               self.junc.append(junction(new.b_idx[i:k],
+                                         m.  t_idx[j:l],
+                                new.material, m.material, self.dx))
 
          ###### junction at left or right of the new mesh ######
          if overlap(pos[0],N[0],m.pos[0],m.N[0]):
@@ -458,29 +465,28 @@ class solver2D(__solver):
                assert len(new.r_idx[i:k]) == len(m.l_idx[j:l])
                print ("\t*Junction at right of the new mesh:",
                 "overlap lenth=", len(new.r_idx[i:k]))
-               print ("\t --> logged as junc['y'][{}]"
-                      .format(len(self.junc['y'])))
-               self.junc['y'].append(junction(new.r_idx[i:k],
-                                              m.  l_idx[j:l],
-                                      new.material, m.material))
+               print ("\t --> logged as junc[{}]"
+                      .format(len(self.junc)))
+               self.junc.append(junction(new.r_idx[i:k],
+                                         m.  l_idx[j:l],
+                                new.material, m.material, self.dy))
             ###### left junction #######
             elif pos[1] == m.pos[1] + m.N[1]:
                assert len(new.l_idx[i:k]) == len(m.r_idx[j:l])
                print ("\t*Junction at left of the new mesh:",
                 "overlap lenth=", len(new.l_idx[i:k]))
-               print ("\t --> logged as junc['y'][{}]"
-                      .format(len(self.junc['y'])))
-               self.junc['y'].append(junction(m.  r_idx[j:l],
-                                              new.l_idx[i:k],
-                                      m.material, new.material))
+               print ("\t --> logged as junc[{}]"
+                      .format(len(self.junc)))
+               self.junc.append(junction(m.  r_idx[j:l],
+                                         new.l_idx[i:k],
+                                  m.material, new.material,self.dy))
 
       self.meshes.append(new)
       self.c_size += N[0] * N[1]
       return new
 
    def add_contact(self,x,y) :
-      cix = len(self.contact['x'])
-      ciy = len(self.contact['y'])
+      ci = len(self.contact)
 
       #### y contanct ####
       if type(x) is list and len(x)==2 and type(y) is int:
@@ -496,18 +502,18 @@ class solver2D(__solver):
             if overlap(x[0],Nx,m.pos[0],m.N[0]):
                _,i,_,k = calc_offset(x[0],Nx,m.pos[0],m.N[0])
                if y == m.pos[1] - 1:
-                  print("solver2D.add_contact: y-contact #{} added"
+                  print("solver2D.add_contact: contact #{} added"
                         "\n\t*At left of mesh #{}, length={}"
-                        .format(ciy,n,len(m.l_idx[i:k])))
-                  new = contact(m.l_idx[i:k],m.material,0)
-                  self.contact['y'].append(new)
+                        .format(ci,n,len(m.l_idx[i:k])))
+                  new = contact(m.l_idx[i:k],m.material,self.dy,-1)
+                  self.contact.append(new)
                   return new
                elif y == m.pos[1] + m.N[1]:
-                  print("solver2D.add_contact: y-contact #{} added"
+                  print("solver2D.add_contact: contact #{} added"
                         "\n\t*At right of mesh #{}, length={}"
-                        .format(ciy,n,len(m.r_idx[i:k])))
-                  new = contact(m.r_idx[i:k],m.material,1)
-                  self.contact['y'].append(new)
+                        .format(ci,n,len(m.r_idx[i:k])))
+                  new = contact(m.r_idx[i:k],m.material,self.dy,1)
+                  self.contact.append(new)
                   return new
          else:
             print("No connection with mesh detected, ignored")
@@ -525,18 +531,18 @@ class solver2D(__solver):
             if overlap(y[0],Ny,m.pos[1],m.N[1]):
                _,i,_,k = calc_offset(y[0],Ny,m.pos[1],m.N[1])
                if x == m.pos[0] - 1:
-                  print("solver2D.add_contact: x-contact #{} added"
+                  print("solver2D.add_contact: contact #{} added"
                         "\n\t*At top of mesh #{}, length={}"
-                        .format(cix,n,len(m.t_idx[i:k])))
-                  new = contact(m.t_idx[i:k],m.material,0)
-                  self.contact['x'].append(new)
+                        .format(ci,n,len(m.t_idx[i:k])))
+                  new = contact(m.t_idx[i:k],m.material,self.dx,-1)
+                  self.contact.append(new)
                   return new
                elif x == m.pos[0] + m.N[0]:
-                  print("solver2D.add_contact: x-contact #{} added"
+                  print("solver2D.add_contact: contact #{} added"
                         "\n\t*At bottom of mesh #{}, length={}"
-                        .format(cix,n,len(m.b_idx[i:k])))
-                  new = contact(m.b_idx[i:k],m.material,1)
-                  self.contact['x'].append(new)
+                        .format(ci,n,len(m.b_idx[i:k])))
+                  new = contact(m.b_idx[i:k],m.material,self.dx,1)
+                  self.contact.append(new)
                   return new
          else:
             print("No connection with mesh detected, ignored")
@@ -564,31 +570,27 @@ class solver2D(__solver):
       print ("done")
 
       print ("logging indice of jundction pairs",end='...')
-      jx = jy = np.zeros([2,0])
-      if len(self.junc['x']):
-         jx = np.hstack([ j.idx for j in self.junc['x'] ])
-      if len(self.junc['y']):
-         jy = np.hstack([ j.idx for j in self.junc['y'] ])
+      j = np.zeros([2,0])
+      if len(self.junc):
+         j = np.hstack([ j.idx for j in self.junc ])
       print ("done")
 
       print ("logging indice of all contacts",end='...')
-      cx = cy = np.zeros(0)
-      if len(self.contact['x']):
-         cx= np.concatenate([c.idx for c in self.contact['x']])
-      if len(self.contact['y']):
-         cy= np.concatenate([c.idx for c in self.contact['y']])
+      c = np.zeros(0)
+      if len(self.contact):
+         c= np.concatenate([c.idx for c in self.contact])
       print ("done")
 
       ### for creating operator matrice in the future
-      self.op_row = np.concatenate((jx[0],jx[1],jy[0],jy[1],
+      self.op_row = np.concatenate((j[0],j[1],
                                     nx[0],nx[1],ny[0],ny[1],
-                                    jx[1],jx[0],jy[1],jy[0],
-                                    nx[0],nx[1],ny[0],ny[1],cx,cy))
+                                    j[1],j[0],
+                                    nx[0],nx[1],ny[0],ny[1],c))
 
-      self.op_col = np.concatenate((jx[1],jx[0],jy[1],jy[0],
+      self.op_col = np.concatenate((j[1],j[0],
                                     nx[1],nx[0],ny[1],ny[0],
-                                    jx[1],jx[0],jy[1],jy[0],
-                                    nx[0],nx[1],ny[0],ny[1],cx,cy))
+                                    j[1],j[0],
+                                    nx[0],nx[1],ny[0],ny[1],c))
 
    #############################################################
    ##        Visulization of the semiconductor meshes         ##

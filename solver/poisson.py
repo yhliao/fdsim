@@ -35,7 +35,7 @@ class p_solver1D(solver1D):
          djx = np.array([j.m[0].epr/self.dx**2 for j in self.junc])
       dcx = np.zeros(0)
       if len(self.contact):
-         dcx = [-j.material.epr/self.dx**2 for j in self.contact]
+         dcx = [-j.m.epr/self.dx**2 for j in self.contact]
 
       d  = np.concatenate(( djx, djx, dnx, dnx,
                            -djx,-djx,-dnx,-dnx,dcx))
@@ -49,7 +49,7 @@ class p_solver1D(solver1D):
    def reset_EcBV(self) : 
       self.__EcBV[:] = self.__Ecoff
       for c in self.contact :
-         self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dx**2
+         self.__EcBV[c.idx] += c.m.epr * c.Ec / self.dx**2
       for c in self.contact1 :
          self.__EcBV[c.idx] += c.Q / self.dx
 
@@ -82,6 +82,7 @@ class p_solver1D(solver1D):
                   .format(time,err),end= "   \r")
          time += 1
       print ("\n1D poisson solver: converge!")
+      self.write_mesh(['Ec','Ev'])
  
 class p_solver2D(solver2D):
 
@@ -97,16 +98,10 @@ class p_solver2D(solver2D):
       self.NB *= q
 
       ## Handling Ec boundary offset
-      for j in self.junc['x']:
+      for j in self.junc:
          offset = -j.m[0].phiS + j.m[1].phiS
          if offset != 0:
-            o = j.m[0].epr * offset / self.dx**2
-            self.__Ecoff[j.idx[0]] += o
-            self.__Ecoff[j.idx[1]] -= o
-      for j in self.junc['y']:
-         offset = -j.m[0].phiS + j.m[1].phiS
-         if offset != 0:
-            o = j.m[0].epr * offset / self.dy**2
+            o = j.m[0].epr * offset / j.d**2
             self.__Ecoff[j.idx[0]] += o
             self.__Ecoff[j.idx[1]] -= o
 
@@ -118,26 +113,19 @@ class p_solver2D(solver2D):
                             (m.Ny*(m.Nx-1)) for m in self.meshes])
       dny = np.concatenate([ [m.material.epr/self.dy**2] *
                             (m.Nx*(m.Ny-1)) for m in self.meshes])
-      djx = djy = np.zeros(0)
-      if len(self.junc['x']):
-         djx = np.concatenate([ [j.m[0].epr/self.dx**2] * len(j)
-                                for j in self.junc['x'] ])
-      if len(self.junc['y']):
-         djy = np.concatenate([ [j.m[0].epr/self.dy**2] * len(j)
-                                for j in self.junc['y'] ])
+      dj = np.zeros(0)
+      if len(self.junc):
+         dj = np.concatenate([ [j.m[0].epr/j.d**2] * len(j)
+                                        for j in self.junc])
+      dc = np.zeros(0)
+      if len(self.contact):
+         dc = np.hstack([[-j.m.epr/j.d**2] * len(j.idx)
+                                        for j in self.contact])
 
-      dcx = dcy = np.zeros(0)
-      if len(self.contact['x']):
-         dcx= np.hstack([[-j.material.epr/self.dx**2] * len(j.idx)
-                           for j in self.contact['x']])
-      if len(self.contact['y']):
-         dcy= np.hstack([[-j.material.epr/self.dy**2] * len(j.idx)
-                           for j in self.contact['y']])
-
-      d  = np.concatenate(( djx, djx, djy, djy,
+      d  = np.concatenate(( dj, dj, 
                             dnx, dnx, dny, dny,
-                           -djx,-djx,-djy,-djy,
-                           -dnx,-dnx,-dny,-dny, dcx, dcy))
+                           -dj,-dj,
+                           -dnx,-dnx,-dny,-dny, dc))
 
       L  = sp.coo_matrix((d,(self.op_row,self.op_col)))
       self.__L =  L.tocsr()
@@ -147,10 +135,8 @@ class p_solver2D(solver2D):
 
    def reset_EcBV(self) :
       self.__EcBV[:] = self.__Ecoff
-      for c in self.contact['x'] :
-         self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dx**2
-      for c in self.contact['y'] :
-         self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dy**2
+      for c in self.contact :
+         self.__EcBV[c.idx] += c.m.epr * c.Ec / c.d**2
 
    def solve_lpoisson(self) :
       charge = q * (self.p - self.n)
@@ -179,3 +165,4 @@ class p_solver2D(solver2D):
                   .format(time,err),end= "   \r")
          time += 1
       print ("\n2D poisson solver: converge!")
+      self.write_mesh(['Ec','Ev'])

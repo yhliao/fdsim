@@ -92,9 +92,3 @@ class myDamper:
          self.update += 1
          self.osc = 0
 
-if __name__ == "__main__":
-   a = myDamper(1)
-   a.damp(4)
-   a.damp(-3)
-   a.reset()
-   a.damp(5)
