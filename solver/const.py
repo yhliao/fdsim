@@ -65,8 +65,8 @@ class PZT:
    
    alpha = -4.89e7
    epr  = 1/(2*alpha)
-   Eg   = 3 # eV
-   phiS = 3
+   Eg   = 3# eV
+   phiS = 3.35
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
@@ -84,7 +84,7 @@ class PZTi:
    mp   = 470
    Eg   = 3 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
-   phiS = 3
+   phiS = 3.35
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
@@ -94,9 +94,9 @@ class PZTi:
 class VirtualOxide:
    __slots__=['type','epr','Eg','phiS']
    type = 'insulator'
-   epr  = 3.9*ep0
+   epr  = 4*ep0
    Eg   = 4 # eV
-   phiS = 2.5
+   phiS = 3
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
