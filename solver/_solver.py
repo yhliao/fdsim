@@ -61,7 +61,7 @@ class contact(object):
       if type(self.idx) is int:
          return 1
       else:
-         return len(self.idx[0])
+         return len(self.idx)
    def isins(self):
       return (self.m.type is "insulator")
 
@@ -80,7 +80,9 @@ class contact1(object):
 #**********************************************************
 class __solver(object):
 
-   meshes = []
+   meshes  = []
+   junc    = []
+   contact = []
    c_size = 0
    def __init__():
       pass
@@ -236,8 +238,6 @@ class solver1D(__solver):
       def size(self):
          return self.N
 
-   junc     = []
-   contact  = []
    contact1 = []
    neighbor = []
    def __init__ (self, dx) :
@@ -405,10 +405,6 @@ class solver2D(__solver):
       def size(self):
          return self.Nx * self.Ny
 
-   # will be used in constructing operator matrice
-   # each entry of the list contain indice and material type
-   junc     = []
-   contact  = []
    # containing the indice of neighboring pair
    neighbor = {'x':[], 'y':[]}
    def __init__ (self, dx, dy) :
