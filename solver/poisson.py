@@ -22,47 +22,35 @@ class p_solver1D(solver1D):
       self.NB *= q
 
       for j in self.junc:
-         offset = -j[2].phiS + j[3].phiS
+         offset = -j.m[0].phiS + j.m[1].phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[3].epr* offset / (self.dx**2)
-            self.__Ecoff[j[1]] -= j[2].epr* offset / (self.dx**2)
+            o = j.m[0].epr * offset / self.dx**2
+            self.__Ecoff[j.idx[0]] += o
+            self.__Ecoff[j.idx[1]] -= o
 
-      nx = self.neighbor
-      jx = np.zeros([4,0])
+      dnx = np.concatenate([ [m.material.epr/self.dx**2] * (m.N-1)
+                             for m in self.meshes ])
+      dj = dc = np.zeros(0)
       if len(self.junc):
-         jx = np.hstack([[[j[0]],
-                          [j[1]],
-                          [j[2].epr],
-                          [j[3].epr]] for j in self.junc])
-      cx = np.zeros([2,0])
+         dj = np.array([j.m[0].epr/j.d**2 for j in self.junc])
       if len(self.contact):
-         cx = np.hstack([[[j.idx],
-                          [j.material.epr]] for j in self.contact])
+         dc = [-c.m.epr/c.d**2 for c in self.contact]
 
-      row = np.concatenate((jx[0],jx[1],nx[0],nx[1],
-                            jx[1],jx[0],nx[0],nx[1],cx[0]))
-      col = np.concatenate((jx[1],jx[0],nx[1],nx[0],
-                            jx[1],jx[0],nx[0],nx[1],cx[0]))
-      d0 = jx[3] / self.dx**2
-      d1 = jx[2] / self.dx**2
-      d2 = d3 = nx[2] / self.dx**2
-      d4 = -jx[2] / self.dx**2
-      d5 = -jx[3] / self.dx**2
-      d6 = d7 = -nx[2] / self.dx**2
-      d8 = -cx[1] / self.dx**2
-
-      d  = np.concatenate((d0,d1,d2,d3,d4,d5,d6,d7,d8))
+      d  = np.concatenate(( dj, dj,-dj,-dj,
+                            dnx, dnx,-dnx,-dnx,dc))
       
-      L  = sp.coo_matrix((d,(row,col)))
+      L  = sp.coo_matrix((d,(self.op_row,self.op_col)))
       self.__L =  L.tocsr()
       print ("done, __L.shape=",self.__L.shape )
       # __L * Ec = (NB+n-p)*q/epr - __EcBV
-      del L
-
+      del L,d
+      
    def reset_EcBV(self) : 
       self.__EcBV[:] = self.__Ecoff
       for c in self.contact :
-         self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dx**2
+         self.__EcBV[c.idx] += c.m.epr * c.Ec / self.dx**2
+      for c in self.contact1 :
+         self.__EcBV[c.idx] += c.Q / self.dx
 
    def solve_lpoisson(self) :
       charge = q * (self.p - self.n)
@@ -77,8 +65,10 @@ class p_solver1D(solver1D):
       time = 0
       while abs(err) >tol :
          self.calc_np()
-         charge = q * (self.p - self.n)
-         LL = self.__L + sp.diags(charge,0,format='csr') *(q/kBT)
+         self.calc_it()
+         charge = q * (self.p - self.n + self.Qit)
+         LL = self.__L + sp.diags(charge*(q/kBT) - self.Dit*q,0
+                                  ,format='csr')
          Laplacian = self.__L * self.Ec + self.__EcBV 
          dEc[:] = spsolve( LL , self.NB + charge - Laplacian)
 
@@ -91,6 +81,7 @@ class p_solver1D(solver1D):
                   .format(time,err),end= "   \r")
          time += 1
       print ("\n1D poisson solver: converge!")
+      self.write_mesh(['Ec','Ev'])
  
 class p_solver2D(solver2D):
 
@@ -106,85 +97,43 @@ class p_solver2D(solver2D):
       self.NB *= q
 
       ## Handling Ec boundary offset
-      for j in self.junc['x']:
-         offset = -j[2].phiS + j[3].phiS
+      for j in self.junc:
+         offset = -j.m[0].phiS + j.m[1].phiS
          if offset != 0:
-            self.__Ecoff[j[0]] += j[3].epr * offset / (self.dx**2)
-            self.__Ecoff[j[1]] -= j[2].epr * offset / (self.dx**2)
-      for j in self.junc['y']:
-         offset = -j[2].phiS + j[3].phiS
-         if offset != 0:
-            self.__Ecoff[j[0]] += j[3].epr * offset / (self.dy**2)
-            self.__Ecoff[j[1]] -= j[2].epr * offset / (self.dy**2)
+            o = j.m[0].epr * offset / j.d**2
+            self.__Ecoff[j.idx[0]] += o
+            self.__Ecoff[j.idx[1]] -= o
 
       ## use coordinate form to efficiently generate the matrix
       ## then convert to csr form
       print ("Constructing Laplacian sparse matrix ...",end=' ')
       
-      nx= self.neighbor['x']
-      ny= self.neighbor['y']
-      jx = jy = np.zeros([4,0])
-      if len(self.junc['x']):
-         jx = np.hstack([[ j[0], j[1],
-                          [j[2].epr] * len(j[0]),
-                          [j[3].epr] * len(j[0])]
-                          for j in self.junc['x'] ])
-      if len(self.junc['y']):
-         jy = np.hstack([[ j[0], j[1],
-                          [j[2].epr] * len(j[0]),
-                          [j[3].epr] * len(j[0])]
-                          for j in self.junc['y'] ])
+      dnx = np.concatenate([[m.material.epr/self.dx**2] *
+                            (m.Ny*(m.Nx-1)) for m in self.meshes])
+      dny = np.concatenate([ [m.material.epr/self.dy**2] *
+                            (m.Nx*(m.Ny-1)) for m in self.meshes])
+      dj = dc = np.zeros(0)
+      if len(self.junc):
+         dj = np.concatenate([ [j.m[0].epr/j.d**2] * len(j)
+                                        for j in self.junc])
+      if len(self.contact):
+         dc = np.hstack([[-c.m.epr/c.d**2] * len(c.idx)
+                                        for c in self.contact])
 
-      cx = cy = np.zeros([2,0])
-      if len(self.contact['x']):
-         cx= np.hstack([[j.idx, [j.material.epr] * len(j.idx)]
-                         for j in self.contact['x']])
-      if len(self.contact['y']):
-         cy= np.hstack([[j.idx, [j.material.epr] * len(j.idx)]
-                         for j in self.contact['y']])
-      row = np.concatenate((jx[0],jx[1],jy[0],jy[1],
-                            nx[0],nx[1],ny[0],ny[1],
-                            jx[1],jx[0],jy[1],jy[0],
-                            nx[0],nx[1],ny[0],ny[1],cx[0],cy[0]))
+      d  = np.concatenate(( dj, dj, -dj, -dj, 
+                            dnx, dnx, dny, dny,
+                           -dnx,-dnx,-dny,-dny, dc))
 
-      print (row)
-      col = np.concatenate((jx[1],jx[0],jy[1],jy[0],
-                            nx[1],nx[0],ny[1],ny[0],
-                            jx[1],jx[0],jy[1],jy[0],
-                            nx[0],nx[1],ny[0],ny[1],cx[0],cy[0]))
-      d0 = jx[3] / self.dx**2
-      d1 = jx[2] / self.dx**2
-      d2 = jy[3] / self.dy**2
-      d3 = jy[2] / self.dy**2
-
-      d4 = d5 = nx[2] / self.dx**2
-      d6 = d7 = ny[2] / self.dy**2
-
-      d8 = -jx[2] / self.dx**2
-      d9 = -jx[3] / self.dx**2
-      d10= -jy[2] / self.dy**2
-      d11= -jy[3] / self.dy**2
-      
-      d12 = d13 = -nx[2] / self.dx**2
-      d14 = d15 = -ny[2] / self.dy**2
-      d16 = -cx[1] / self.dx**2
-      d17 = -cy[1] / self.dy**2
-
-      d  = np.concatenate((d0,d1,d2,d3,d4,d5,d6,d7,
-                           d8,d9,d10,d11,d12,d13,d14,d15,d16,d17))
-      L  = sp.coo_matrix((d,(row,col)))
+      L  = sp.coo_matrix((d,(self.op_row,self.op_col)))
       self.__L =  L.tocsr()
-      del L
       print ("done, __L.shape=",self.__L.shape )
-
       # __L * Ec = (NB+n-p)*q/epr - __EcBV
+      del L, d
 
    def reset_EcBV(self) :
       self.__EcBV[:] = self.__Ecoff
-      for c in self.contact['x'] :
-         self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dx**2
-      for c in self.contact['y'] :
-         self.__EcBV[c.idx] += c.material.epr * c.Ec / self.dy**2
+      for c in self.contact :
+         self.__EcBV[c.idx] += c.m.epr * c.Ec / c.d**2
 
    def solve_lpoisson(self) :
       charge = q * (self.p - self.n)
@@ -213,3 +162,4 @@ class p_solver2D(solver2D):
                   .format(time,err),end= "   \r")
          time += 1
       print ("\n2D poisson solver: converge!")
+      self.write_mesh(['Ec','Ev'])

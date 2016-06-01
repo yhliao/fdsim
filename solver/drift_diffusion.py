@@ -8,10 +8,8 @@ from scipy.sparse.linalg import spsolve
 from solver._solver import solver1D, solver2D
 from solver.util    import myDamper
 from solver.const   import q , kBT
-mn = 1350000
-mp = 450000
 
-class dd_solver(solver1D) :
+class current_solver(solver1D) :
 
    def __init__ (self, dx, N):
       solver1D.__init__(self,dx,N)
@@ -19,24 +17,6 @@ class dd_solver(solver1D) :
       self._p_ = self.p[1:N+1]
       self._Efn_ = self.Efn[1:N+1]
       self._Efp_ = self.Efp[1:N+1]
-
-   def set_Ecv (self,Ec,Ev) :
-      assert Ec.shape[0] == self.N+2
-      assert Ev.shape[0] == self.N+2
-      self.Ec = Ec
-      self.Ev = Ev
-      self.__Ecmid = (Ec[0:self.N+1]+Ec[1:self.N+2])/2
-      self.__Evmid = (Ev[0:self.N+1]+Ev[1:self.N+2])/2
-
-   def set_BV4n (self, n0, nN) :
-      assert n0 > 0 and nN > 0
-      self.n[0] = n0
-      self.n[-1] = nN
-
-   def set_BV4p (self, p0, pN) :
-      assert p0 > 0 and pN > 0
-      self.p[0] = p0
-      self.p[-1] = pN
 
    def solve_slotboom (self):
       self.__solve_slotboomn()
@@ -86,11 +66,71 @@ class dd_solver(solver1D) :
       self.Efp[1:self.N+1] = - np.log(slotboom) * kBT
 
 class current_solver(solver2D):
+
    def __init__(self,dx,dy):
       super(current_solver,self).__init__(dx,dy)
+
    def __continuity(self):
-      pass
+      ### Using Scharfetter-Gummel expression
+      dnxAn = np.zeros(self.neighbor['x'].shape[1])
+      dnxBn = np.zeros(self.neighbor['x'].shape[1])
+      dnxAp = np.zeros(self.neighbor['x'].shape[1])
+      dnxBp = np.zeros(self.neighbor['x'].shape[1])
+      
+      dnyAn = np.zeros(self.neighbor['y'].shape[1])
+      dnyBn = np.zeros(self.neighbor['y'].shape[1])
+      dnyAp = np.zeros(self.neighbor['y'].shape[1])
+      dnyBp = np.zeros(self.neighbor['y'].shape[1])
+      ix = 0
+      iy = 0
+      for m in self.meshes:
+         jx = ix + m.Ny*(m.Nx-1)
+         jy = iy + m.Nx*(m.Ny-1)
+         if m.material is 'semiconductor':
+            ##### for x-direction #####
+            tx = np.diff(m.Ec,0).reshape(m.Ny*(m.Nx-1)) / kBT
+            dnxAn[ix:jx]= q*m.Dn/(self.dx**2) * tx/(np.exp(-tx)-1)
+            dnxBn[ix:jx]= q*m.Dn/(self.dx**2) * tx/(np.exp(tx)-1)
+
+            ##### for y-direction #####
+            ty = np.diff(m.Ec,1).reshape(m.Nx*(m.Ny-1)) / kBT
+            dnyAn[iy:jy]= q*m.Dn/(self.dy**2) * ty/(np.exp(-ty)-1)
+            dnyBn[iy:jy]= q*m.Dn/(self.dy**2) * ty/(np.exp(ty)-1)
+         else:
+            #### dummies for preventing singular matrix
+            dnxAn[ix:jx] = 1
+            dnxBn[ix:jx] = 1
+            dnyAn[iy:jy] = 1
+            dnyAn[iy:jy] = 1
+         ix = jx
+         iy = jy
+
+      for j in self.junc:
+         if not j.isins():
+            tn = (self.Ec[j.idx[1]] - self.Ec[j.idx[0]]) / kBT
+            dAn= q*j.m[0].Dn/(j.d**2) * tn/(np.exp(-tn)-1)
+            dBn= q*j.m[0].Dn/(j.d**2) * tn/(np.exp(tn)-1)
+         else:
+            dAn = dBn = [0] * len(j)
+
+         djAn.append(dAn)
+         djBn.append(dBn)
+      djAn = np.concatenate(djAn)
+      djBn = np.concatenate(djBn)
+
+      for c in self.contact:
+         if not c.isins():
+            tn = c.pflag*(c.Ec - self.Ec[c.idx]) / kBT
+            dAn= q*c.m.Dn/(c.d**2)* tn/(np.exp(-tn)-1)
+            dBn= q*c.m.Dn/(c.d**2)* tn/(np.exp(tn)-1)
+         else:
+            dAn = dBn = [0] * len(c)
+
+         dcAn.append(dAn)
+         dcBn.append(dBn)
+
    def solve_np(self):
+      self.__continuity()
       pass
    def __WKB(self):
       pass
