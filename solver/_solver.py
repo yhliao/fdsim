@@ -43,7 +43,10 @@ class contact(object):
    __slots__ = ['idx','m','d','pflag','Ec','n','p']
    def __init__(self,idx,m,d,pflag):
       assert pflag == 1 or pflag == -1
-      self.idx   = idx
+      if type(idx) is int:
+         self.idx = [idx]
+      else:
+         self.idx   = idx
       self.m     = m
       self.d     = d
       self.pflag = pflag
@@ -58,10 +61,7 @@ class contact(object):
    def V(self,v):
       self.Ec = V0 - self.m.phiS - v
    def __len__(self):
-      if type(self.idx) is int:
-         return 1
-      else:
-         return len(self.idx)
+      return len(self.idx)
    def isins(self):
       return (self.m.type is "insulator")
 
@@ -330,7 +330,7 @@ class solver1D(__solver):
       print ("logging indice of all contacts",end='...')
       c = np.zeros(0)
       if len(self.contact):
-         c= [c.idx for c in self.contact]
+         c= [c.idx[0] for c in self.contact]
       print ("done")
 
       self.op_row = np.concatenate((j[0],j[1],j[1],j[0],

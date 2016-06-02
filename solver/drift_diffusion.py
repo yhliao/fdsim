@@ -9,7 +9,14 @@ from solver._solver import solver1D, solver2D
 from solver.util    import myDamper
 from solver.const   import q , kBT
 
-### Using Scharfetter-Gummel expression ###
+### TODO: handling for insulator mesh
+### TODO: SRH, WKB
+
+###### Using Scharfetter-Gummel expression #######
+# functions for n, p continuity equations        #
+# t: -(Ei+1 - Ei)/kBT (both Ec, Ev)              #
+# for hole current, the An, Bn should be swithed #
+##################################################
 def SGn(t,Dn,d):
    idx_c = t != 0
    An = -q*Dn/(d**2) * np.ones(len(t))
@@ -54,35 +61,46 @@ class J_solver1D(solver1D) :
       for m in self.meshes:
          j = i + m.N - 1
          if m.material.type is 'semiconductor':
-            ##### for x-direction #####
             t = -np.diff(m.Ec) / kBT
             dnn[0][i:j],dnn[1][i:j] = SGn(t,m.material.Dn,self.dx)
+            dnp[1][i:j],dnp[0][i:j] = SGn(t,m.material.Dp,self.dx)
          i = j
       assert i == len(dnn[0])
 
       for m,j in enumerate(self.junc):
          if not j.isins():
             tn = -(self.Ec[j.idx[1]] - self.Ec[j.idx[0]]) / kBT
-            djn[0][m],djn[1][m] = SGn(np.array(tn),j.m[0].Dn,j.d)
+            djn[0][m],djn[1][m] = SGn(tn,j.m[0].Dn,j.d)
+            tp = -(self.Ev[j.idx[1]] - self.Ev[j.idx[0]]) / kBT
+            djp[1][m],djp[0][m] = SGn(tp,j.m[0].Dp,j.d)
 
       for m,c in enumerate(self.contact):
          if not c.isins():
-            tn = -(c.Ec - self.Ec[c.idx]) / kBT
-            X,Y = SGn(np.array([tn]), c.m.Dn, c.d)
-            dcn[m]  = X
-            self.__JnBV[c.idx] = -c.n * Y
+            t = -(c.Ec - self.Ec[c.idx]) / kBT
+            dcn[m] ,Yn = SGn(t, c.m.Dn, c.d)
+            Yp, dcp[m] = SGn(t, c.m.Dp, c.d)
+            self.__JnBV[c.idx] = -c.n * Yn
+            self.__JpBV[c.idx] = -c.p * Yp
+            #X,Y = SGn(np.array([t]), c.m.Dn, c.d)
+            #dcn[m]  = X
+            #self.__JnBV[c.idx] = -c.n * Y
 
-      dn = np.concatenate(( djn[1],-djn[0],-djn[1],djn[0], 
-                            dnn[1],-dnn[0],dnn[0],-dnn[1],dcn))
+      dn = np.concatenate(( djn[1],-djn[0],-djn[1], djn[0], 
+                            dnn[1],-dnn[0], dnn[0],-dnn[1],dcn))
+      dp = np.concatenate(( djp[1],-djp[0],-djp[1], djp[0], 
+                            dnp[1],-dnp[0], dnp[0],-dnp[1],dcp))
       DJn = sp.coo_matrix((dn,(self.op_row,self.op_col)))
+      DJp = sp.coo_matrix((dp,(self.op_row,self.op_col)))
       self.__DJn = DJn.tocsr()
-
-      del DJn
+      self.__DJp = DJp.tocsr()
+      del DJn, DJp
 
    def solve_np(self):
       self.__continuity()
       n_new = spsolve(self.__DJn, self.__JnBV)
+      p_new = spsolve(self.__DJp, self.__JpBV)
       self.n[:] = n_new
+      self.p[:] = p_new
       self.calc_Ef()
       self.write_mesh(['Efn','Efp','n','p'])
       pass
@@ -134,9 +152,14 @@ class J_solver2D(solver2D):
             tx = -np.diff(m.Ec,axis=0).reshape(m.Ny*(m.Nx-1)) / kBT
             dnn[0][0][ix:jx],dnn[0][1][ix:jx]=\
                         SGn(tx,m.material.Dn,self.dx)
+            dnp[0][1][ix:jx],dnp[0][0][ix:jx]=\
+                        SGn(tx,m.material.Dp,self.dx)
+            ##### for y-direction #####
             ty = -np.diff(m.Ec,axis=1).reshape(m.Nx*(m.Ny-1)) / kBT
             dnn[1][0][iy:jy],dnn[1][1][iy:jy]=\
                         SGn(ty,m.material.Dn,self.dy)
+            dnp[1][1][iy:jy],dnp[1][0][iy:jy]=\
+                        SGn(ty,m.material.Dp,self.dy)
          ix = jx
          iy = jy
       assert ix == len(dnn[0][0])
@@ -148,6 +171,8 @@ class J_solver2D(solver2D):
          if not j.isins():
             tn = -(self.Ec[j.idx[1]] - self.Ec[j.idx[0]]) / kBT
             djn[0][m:n],djn[1][m:n] = SGn(tn,j.m[0].Dn,j.d)
+            tp = -(self.Ev[j.idx[1]] - self.Ev[j.idx[0]]) / kBT
+            djp[1][m:n],djp[0][m:n] = SGn(tp,j.m[0].Dp,j.d)
          m = n
       assert m == len(djn[0])
 
@@ -155,25 +180,32 @@ class J_solver2D(solver2D):
       for c in self.contact:
          n = m + len(c)
          if not c.isins():
-            tn = -(c.Ec - self.Ec[c.idx]) / kBT
-            X,Y = SGn(tn, c.m.Dn, c.d)
-            dcn[m:n]  = X
-            self.__JnBV[c.idx] = -c.n * Y
+            t = -(c.Ec - self.Ec[c.idx]) / kBT
+            dcn[m:n] ,Yn = SGn(t, c.m.Dn, c.d)
+            Yp, dcp[m:n] = SGn(t, c.m.Dp, c.d)
+            self.__JnBV[c.idx] = -c.n * Yn
+            self.__JpBV[c.idx] = -c.p * Yp
          m = n
       assert m == len(dcn)
 
       dn = np.concatenate(( djn[1], -djn[0], -djn[1], djn[0], 
                    dnn[0][1],-dnn[0][0],dnn[1][1],-dnn[1][0],
                    dnn[0][0],-dnn[0][1],dnn[1][0],-dnn[1][1], dcn))
+      dp = np.concatenate(( djp[1], -djp[0], -djp[1], djp[0], 
+                   dnp[0][1],-dnp[0][0],dnp[1][1],-dnp[1][0],
+                   dnp[0][0],-dnp[0][1],dnp[1][0],-dnp[1][1], dcp))
       DJn = sp.coo_matrix((dn,(self.op_row,self.op_col)))
+      DJp = sp.coo_matrix((dp,(self.op_row,self.op_col)))
       self.__DJn = DJn.tocsr()
-
-      del DJn
+      self.__DJp = DJp.tocsr()
+      del DJn, DJp
 
    def solve_np(self):
       self.__continuity()
       n_new = spsolve(self.__DJn, self.__JnBV)
+      p_new = spsolve(self.__DJp, self.__JpBV)
       self.n[:] = n_new
+      self.p[:] = p_new
       self.calc_Ef()
       self.write_mesh(['Efn','Efp','n','p'])
       pass
