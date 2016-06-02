@@ -9,7 +9,6 @@ from solver._solver import solver1D, solver2D
 from solver.util    import myDamper
 from solver.const   import q , kBT
 
-### TODO: handling for insulator mesh
 ### TODO: SRH, WKB
 
 ###### Using Scharfetter-Gummel expression #######
@@ -93,6 +92,13 @@ class J_solver1D(solver1D) :
       DJp = sp.coo_matrix((dp,(self.op_row,self.op_col)))
       self.__DJn = DJn.tocsr()
       self.__DJp = DJp.tocsr()
+
+      ## for preventing singular matrix
+      for m in self.meshes:
+         if m.material.type is 'insulator':
+            i = m.l_idx
+            self.__DJn[i,i] += 1
+            self.__DJp[i,i] += 1
       del DJn, DJp
 
    def solve_np(self):
@@ -198,6 +204,12 @@ class J_solver2D(solver2D):
       DJp = sp.coo_matrix((dp,(self.op_row,self.op_col)))
       self.__DJn = DJn.tocsr()
       self.__DJp = DJp.tocsr()
+      ## for preventing singular matrix
+      for m in self.meshes:
+         if m.material.type is 'insulator':
+            i = m.l_idx
+            self.__DJn[i,i] += 1
+            self.__DJp[i,i] += 1
       del DJn, DJp
 
    def solve_np(self):
