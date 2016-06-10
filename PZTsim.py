@@ -9,6 +9,7 @@ parser.add_argument('--tPZT',required=True,type=int)
 parser.add_argument('--ND'  ,required=True,type=float)
 config = parser.parse_args(argv[1:])
 
+from matplotlib import pyplot as plt
 import numpy as np
 from   xlutils.copy import copy
 import xlwt, xlrd
@@ -67,7 +68,10 @@ ws.write(0,1,'Vfe')
 ws.write(0,2,'Vpoly')
 ws.write(0,3,'Vtotal')
 row = 0
-for V in np.linspace(0.2,-4,70):
+step = 70
+QQ = np.empty(step)
+VV = np.empty(step)
+for i, V in enumerate(np.linspace(1,-4,step)):
    row = row+1
    cl.V = V
    s.reset_EcBV()
@@ -82,6 +86,8 @@ for V in np.linspace(0.2,-4,70):
    Vtot  = Vfe + Vpoly
    print ("V= {} V".format(Vtot))
    print ("Vapp={}".format(V))
+   QQ[i] = Q
+   VV[i] = V
    ws.write(row,0,Q)
    ws.write(row,1,Vfe)
    ws.write(row,2,Vpoly)
@@ -91,4 +97,6 @@ for V in np.linspace(0.2,-4,70):
    Ev_log[:] = s.Ev
    #s.write_mesh(['Ec','Ev','Efn'])
    #s.visualize(['Ec','Ev','Efn'])
+plt.plot(QQ,VV)
+plt.show()
 wb.save(filename)
