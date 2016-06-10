@@ -78,7 +78,7 @@ class p_solver1D(solver1D):
          self.Ev += dEc
 
          print ("1D poisson solver: {}th iteration, err={:.6}"
-                  .format(time,err),end= "   \r")
+                  .format(time,err),end= "......\r")
          time += 1
       print ("\n1D poisson solver: converge!")
       self.write_mesh(['Ec','Ev'])
@@ -159,7 +159,7 @@ class p_solver2D(solver2D):
          self.Ev += dEc
 
          print ("2D poisson solver: {}th iteration, err={:.6}"
-                  .format(time,err),end= "   \r")
+                  .format(time,err),end= "......\r")
          time += 1
       print ("\n2D poisson solver: converge!")
       self.write_mesh(['Ec','Ev'])

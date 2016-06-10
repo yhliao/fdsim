@@ -12,13 +12,16 @@ h_  = 1.05457E-34 #J*s
 pi  = 3.14159
 
 class Si:
-   __slots__=['type','epr','Nc','Nv','mn','mp','Eg','phiS']
+   __slots__=['type','epr','Nc','Nv','Dn','Dp',\
+              'taun','taup','Eg','phiS']
    type = 'semiconductor'
    epr  = 11.7*ep0
    Nc   = 3.2e19*1e6
    Nv   = 1.8e19*1e6
-   mn   = 1430
-   mp   = 470
+   Dn   = .1430 * kBT
+   Dp   = .0470 * kBT
+   taun = 1e-5
+   taup = 1e-5
    Eg   = 1.12 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
    phiS = 4.05
@@ -29,13 +32,16 @@ class Si:
       raise AttributeError, "Edit const.py to change the parameters"
 
 class Ge:
-   __slots__=['type','epr','Nc','Nv','mn','mp','Eg','phiS']
+   __slots__=['type','epr','Nc','Nv','Dn','Dp',\
+              'taun','taup','Eg','phiS']
    type = 'semiconductor'
    epr  = 16*ep0
    Nc   = 3.2e19*1e6
    Nv   = 1.8e19*1e6
-   mn   = 3900
-   mp   = 1900
+   Dn   = .3900 * kBT
+   Dp   = .1900 * kBT
+   taun = 1e-5
+   taup = 1e-5
    Eg   = 0.66 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
    phiS = 4.15
@@ -73,13 +79,13 @@ class PZT:
       raise AttributeError
 
 class PZTi:
-   __slots__=['type','epr','Nc','Nv','mn','mp','Eg','phiS']
+   __slots__=['type','epr','Nc','Nv','Dn','Dp','Eg','phiS']
    type = 'semiconductor'
    epr  = 100*ep0
    Nc   = 3.2e19*1e6
    Nv   = 1.8e19*1e6
-   mn   = 1430
-   mp   = 470
+   Dn   = .1430 * kBT
+   Dp   = .470 * kBT
    Eg   = 3 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
    phiS = 3.35

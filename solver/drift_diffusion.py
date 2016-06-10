@@ -9,6 +9,7 @@ from solver._solver import solver1D, solver2D
 from solver.util    import myDamper
 from solver.const   import q , kBT
 
+### TODO: mobility and lifetime variation changed with doping
 ### TODO: SRH, WKB
 
 ###### Using Scharfetter-Gummel expression #######
@@ -18,8 +19,8 @@ from solver.const   import q , kBT
 ##################################################
 def SGn(t,Dn,d):
    idx_c = t != 0
-   An = -q*Dn/(d**2) * np.ones(len(t))
-   Bn =  q*Dn/(d**2) * np.ones(len(t))
+   An = -Dn/(d**2) * np.ones(len(t))
+   Bn =  Dn/(d**2) * np.ones(len(t))
    An[idx_c] *= -t[idx_c]/(np.exp(-t[idx_c])-1)
    Bn[idx_c] *=  t[idx_c]/(np.exp( t[idx_c])-1)
    return An, Bn
@@ -44,17 +45,14 @@ class J_solver1D(solver1D) :
       self.dcn = np.zeros(csize)
       self.dcp = np.zeros(csize)
 
-   def __continuity(self):
+   def _continuity(self):
       ## free the spaces before creating new profile
       if hasattr(self,'__DJn'):
          del self.__DJn, self.__DJp
       #### for better code readability ####
-      dnn = self.dnn
-      dnp = self.dnp
-      djn = self.djn
-      djp = self.djp
-      dcn = self.dcn
-      dcp = self.dcp
+      (dnn,dnp) = (self.dnn, self.dnp)
+      (djn,djp) = (self.djn, self.djp)
+      (dcn,dcp) = (self.dcn, self.dcp)
 
       i = 0
       for m in self.meshes:
@@ -101,19 +99,59 @@ class J_solver1D(solver1D) :
             self.__DJp[i,i] += 1
       del DJn, DJp
 
-   def solve_np(self):
-      self.__continuity()
-      n_new = spsolve(self.__DJn, self.__JnBV)
-      p_new = spsolve(self.__DJp, self.__JpBV)
-      self.n[:] = n_new
-      self.p[:] = p_new
-      self.calc_Ef()
+   def solve_np(self,tol=1e-3):
+      if not hasattr(self,'Efnlog'):
+         self.Efnlog = np.array(self.Efn)
+         self.Efplog = np.array(self.Efp)
+
+      self._continuity()
+      #DN = myDamper(0.5)
+      #DP = myDamper(0.5)
+      (errn,errp) = (1,1)
+      time = 0
+      while abs(errn) > tol or abs(errp) > tol:
+         time += 1
+         self._SRH()
+         contn = self.__DJn - sp.diags(
+                 self.p * self.__SRH[0,:],0,format='csr')
+         contp = self.__DJp + sp.diags(
+                 self.n * self.__SRH[0,:],0,format='csr')
+         self.n[:] = spsolve(contn, self.__JnBV + self.__SRH[1,:])
+         self.p[:] = spsolve(contp, self.__JpBV - self.__SRH[1,:])
+
+         ### calculate the errors, and log the results
+         self.calc_Ef()
+         dEfn = self.Efn - self.Efnlog
+         dEfp = self.Efp - self.Efplog
+         errn = dEfn[np.argmax(abs(dEfn))]
+         errp = dEfp[np.argmax(abs(dEfp))]
+         print("1D current solver: {}th iteration,err={:.6},{:.6}"
+                 .format(time,errn,errp),end= "......\r")
+         #self.Efn[:] = self.Efnlog + dEfn * DN(errn) / errn
+         #self.Efp[:] = self.Efplog + dEfp * DP(errp) / errp
+         self.Efnlog[:] = self.Efn
+         self.Efplog[:] = self.Efp
+         #self.calc_np()
+      print ("\n1D current solver: converge!")
       self.write_mesh(['Efn','Efp','n','p'])
-      pass
+
    def __WKB(self):
       pass
-   def __SRH(self):
-      pass
+
+   def _SRH(self):
+      if not hasattr(self,'__SRH'):
+         self.__SRH = np.zeros([2,self.c_size])
+         self.__SRH[0,:] = 1
+      x = 0
+      for m in self.meshes:
+         mat = m.material
+         y = x + m.size
+         if mat.type is 'semiconductor':
+            self.__SRH[0,x:y]=1/(mat.taun*(self.n[x:y]+mat.ni)+\
+                                 mat.taup*(self.p[x:y]+mat.ni))
+            self.__SRH[1,x:y]= - mat.ni**2 * self.__SRH[0,x:y]
+         x = y
+      assert x == self.c_size
 
 class J_solver2D(solver2D):
 
@@ -137,17 +175,14 @@ class J_solver2D(solver2D):
       self.dcn = np.zeros(csize)
       self.dcp = np.zeros(csize)
 
-   def __continuity(self):
+   def _continuity(self):
       ## free the spaces before creating new profile
       if hasattr(self,'__DJn'):
          del self.__DJn, self.__DJp
       #### for better code readability ####
-      dnn = self.dnn
-      dnp = self.dnp
-      djn = self.djn
-      djp = self.djp
-      dcn = self.dcn
-      dcp = self.dcp
+      (dnn,dnp) = (self.dnn, self.dnp)
+      (djn,djp) = (self.djn, self.djp)
+      (dcn,dcp) = (self.dcn, self.dcp)
 
       ix = iy = 0
       for m in self.meshes:
@@ -212,19 +247,56 @@ class J_solver2D(solver2D):
             self.__DJp[i,i] += 1
       del DJn, DJp
 
-   def solve_np(self):
-      self.__continuity()
-      n_new = spsolve(self.__DJn, self.__JnBV)
-      p_new = spsolve(self.__DJp, self.__JpBV)
-      self.n[:] = n_new
-      self.p[:] = p_new
-      self.calc_Ef()
+   def solve_np(self,tol=1e-5):
+      if not hasattr(self,'Efnlog'):
+         self.Efnlog = np.array(self.Efn)
+         self.Efplog = np.array(self.Efp)
+
+      self._continuity()
+      #DN = myDamper(0.5)
+      #DP = myDamper(0.5)
+      (errn,errp) = (1,1)
+      time = 0
+      while abs(errn) > tol or abs(errp) > tol:
+         time += 1
+         self._SRH()
+         contn = self.__DJn - sp.diags(
+                 self.p * self.__SRH[0,:],0,format='csr')
+         contp = self.__DJp + sp.diags(
+                 self.n * self.__SRH[0,:],0,format='csr')
+         self.n[:] = spsolve(contn, self.__JnBV + self.__SRH[1,:])
+         self.p[:] = spsolve(contp, self.__JpBV - self.__SRH[1,:])
+
+         ### calculate the errors, and log the results
+         self.calc_Ef()
+         dEfn = self.Efn - self.Efnlog
+         dEfp = self.Efp - self.Efplog
+         errn = dEfn[np.argmax(abs(dEfn))]
+         errp = dEfp[np.argmax(abs(dEfp))]
+         print("1D current solver: {}th iteration,err={:.6},{:.6}"
+                 .format(time,errn,errp),end= "......\r")
+         #self.Efn[:] = self.Efnlog + dEfn * DN(errn) / errn
+         #self.Efp[:] = self.Efplog + dEfp * DP(errp) / errp
+         self.Efnlog[:] = self.Efn
+         self.Efplog[:] = self.Efp
+         #self.calc_np()
+      print ("\n1D current solver: converge!")
       self.write_mesh(['Efn','Efp','n','p'])
-      pass
+
    def __WKB(self):
       pass
-   def __SRH(self):
-      pass
 
-if __name__ == "__main__" :
-   pass
+   def _SRH(self):
+      if not hasattr(self,'__SRH'):
+         self.__SRH = np.zeros([2,self.c_size])
+         self.__SRH[0,:] = 1
+      x = 0
+      for m in self.meshes:
+         mat = m.material
+         y = x + m.size
+         if mat.type is 'semiconductor':
+            self.__SRH[0,x:y]=1/(mat.taun*(self.n[x:y]+mat.ni)+\
+                                 mat.taup*(self.p[x:y]+mat.ni))
+            self.__SRH[1,x:y]= - mat.ni**2 * self.__SRH[0,x:y]
+         x = y
+      assert x == self.c_size

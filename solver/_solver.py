@@ -106,8 +106,12 @@ class __solver(object):
       self.Efp  = np.zeros(self.c_size) 
       self.n    = np.zeros(self.c_size) 
       self.p    = np.zeros(self.c_size) 
+      #self.ni   = np.zeros(self.c_size) 
+      #self.taun = np.zeros(self.c_size)
+      #self.taup = np.zeros(self.c_size)
       self.Qit  = np.zeros(self.c_size) 
       self.Dit  = np.zeros(self.c_size) 
+
       x = 0
       for i,m in enumerate(self.meshes):
          y = x + m.size
@@ -116,12 +120,12 @@ class __solver(object):
          if m.material.type is 'semiconductor' :
             self.n[x:y]    = m.material.ni
             self.p[x:y]    = m.material.ni
+            #self.ni[x:y]   = m.material.ni
             self.Efn[x:y]  = V0 - m.material.phiS - m.material.Eg/2
             self.Efp[x:y]  = V0 - m.material.phiS - m.material.Eg/2
          elif not m.material.type is 'insulator':
             raise ValueError, \
-             "Error, material type (%s) unknown!"\
-              %(material.type)
+             "Error, material type (%s) unknown!" %(material.type)
          x = y
       assert x == self.c_size
 
@@ -142,8 +146,9 @@ class __solver(object):
                d = m.__dict__[name]
                vector[i:j] = d.reshape(s)
             except KeyError:
-               print ("no {} attribute for mesh #{}"
-                     .format(name,num))
+               pass
+               #print ("no {} attribute for mesh #{}"
+               #      .format(name,num))
          i = j
       assert i == self.c_size
    def write_mesh(self,nlist) :
@@ -157,8 +162,9 @@ class __solver(object):
                p = m.__dict__[name]
                p[:] = self.__dict__[name][i:j].reshape(m.N)
             except KeyError: 
-               print ("no {} attribute for mesh #{}"
-                     .format(name,num))
+               pass
+               #print ("no {} attribute for mesh #{}"
+               #      .format(name,num))
          i = j
       assert i == self.c_size
 
@@ -595,7 +601,8 @@ class solver2D(__solver):
       ax = fig.add_subplot(111, projection='3d')
       for m in self.meshes:
          for v in vlist:
-            if hasattr(m,v):
+            #if hasattr(m,v):
+            if m.material.type is 'semiconductor':
                ax.plot_surface(m.vx,m.vy,m.__dict__[v],\
                       rstride=2,cstride=2,color=pcol[v])
 
