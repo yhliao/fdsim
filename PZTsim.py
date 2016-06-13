@@ -68,10 +68,10 @@ ws.write(0,1,'Vfe')
 ws.write(0,2,'Vpoly')
 ws.write(0,3,'Vtotal')
 row = 0
-step = 70
+step = 60
 QQ = np.empty(step)
 VV = np.empty(step)
-for i, V in enumerate(np.linspace(1,-4,step)):
+for i, V in enumerate(np.linspace(0.2,-1.75,step)):
    row = row+1
    cl.V = V
    s.reset_EcBV()
