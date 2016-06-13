@@ -9,6 +9,7 @@ ep0 = 8.852e-12 # F/m
 ### Nc calculation ###
 me  = 9.10938E-31 #kg
 h_  = 1.05457E-34 #J*s
+h   = 6.62607E-34 #J*s
 pi  = 3.14159
 
 class Si:

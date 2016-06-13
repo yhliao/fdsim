@@ -2,7 +2,6 @@ from __future__ import absolute_import, print_function, division
 
 import numpy as np
 
-from scipy import sparse as sp
 from scipy.sparse.linalg import spsolve
 
 from solver._solver import solver1D, solver2D
@@ -10,7 +9,7 @@ from solver.util    import myDamper
 from solver.const   import q , kBT
 
 ### TODO: mobility and lifetime variation changed with doping
-### TODO: SRH, WKB
+### TODO: WKB
 
 ###### Using Scharfetter-Gummel expression #######
 # functions for n, p continuity equations        #
@@ -154,7 +153,6 @@ class J_solver1D(solver1D) :
       assert x == self.c_size
 
 class J_solver2D(solver2D):
-
    def __init__(self,dx,dy):
       super(J_solver2D,self).__init__(dx,dy)
 
@@ -253,8 +251,6 @@ class J_solver2D(solver2D):
          self.Efplog = np.array(self.Efp)
 
       self._continuity()
-      #DN = myDamper(0.5)
-      #DP = myDamper(0.5)
       (errn,errp) = (1,1)
       time = 0
       while abs(errn) > tol or abs(errp) > tol:
@@ -275,11 +271,8 @@ class J_solver2D(solver2D):
          errp = dEfp[np.argmax(abs(dEfp))]
          print("1D current solver: {}th iteration,err={:.6},{:.6}"
                  .format(time,errn,errp),end= "......\r")
-         #self.Efn[:] = self.Efnlog + dEfn * DN(errn) / errn
-         #self.Efp[:] = self.Efplog + dEfp * DP(errp) / errp
          self.Efnlog[:] = self.Efn
          self.Efplog[:] = self.Efp
-         #self.calc_np()
       print ("\n1D current solver: converge!")
       self.write_mesh(['Efn','Efp','n','p'])
 
