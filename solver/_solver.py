@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 #from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import LogNorm, Normalize
 
 from solver.const import kBT, mdb
 from solver.util import overlap, calc_offset
@@ -386,7 +387,7 @@ class solver2D(__solver):
             self.p    = material.ni * np.ones(N)
             self.Efn  = (self.Ec + self.Ev) /2
             self.Efp  = (self.Ec + self.Ev) /2
-            self.GRR  = np.zeros(N)
+            #self.GRR  = np.zeros(N)
          elif material.type == 'insulator' :
             pass
          else:
@@ -400,6 +401,12 @@ class solver2D(__solver):
          self.vx = self.vx.T
          self.vy = self.vy.T
 
+         ### position of the mesh
+         self.extent = (dy* pos[1],        ## left
+                        dy* (pos[1]+N[1]), ## right
+                        dx* (pos[0]+N[0]), ## bottom
+                        dx* pos[0]       ) ## top
+
       def idxlog(self,startidx):
          self.l_idx = np.arange(self.Nx)*self.Ny + startidx
          self.t_idx = np.arange(self.Ny) + startidx
@@ -410,6 +417,28 @@ class solver2D(__solver):
       @property
       def size(self):
          return self.Nx * self.Ny
+
+      def cshow(self,name):
+         if hasattr(self,name):
+            data = self.__dict__[name]
+            if name=='n' or name=='p':
+               N = LogNorm(vmin=data.min(),vmax=data.max())
+               title = "Carrier concentration " + name + '$\ (m^{-3})$'
+            elif name=='Ec' or name=='Ev' or name=='Efn' or name=='Efp':
+               N = Normalize(vmin=data.min(),vmax=data.max())
+               title = "Energy " + name + ' (eV)'
+            else: ## Jn, Jp, NB
+               print ("Warning! Showing function for " + name +
+                      " has not been implemented, ignored..")
+               return
+            plt.matshow(data,extent=self.extent,norm=N)
+            plt.title(title)
+            plt.colorbar()
+            plt.show()
+         else:
+            print (("mesh.show: Warning, this mesh (type:{})"
+                    "doesn't has attribute {}, ignored")
+                   .format(self.material.type,name))
 
    # containing the indice of neighboring pair
    neighbor = {'x':[], 'y':[]}
@@ -435,7 +464,7 @@ class solver2D(__solver):
       for m in self.meshes:
 
          ###### junction at top or bottom of the new mesh ########
-         if overlap(pos[1],N[1],pos[1],m.N[1]):
+         if overlap(pos[1],N[1],m.pos[1],m.N[1]):
             i, j, k, l = calc_offset(pos[1],N[1],m.pos[1],m.N[1])
             ##### top junction #####
             if pos[0] == m.pos[0]+m.N[0]: 
@@ -607,3 +636,4 @@ class solver2D(__solver):
                       rstride=2,cstride=2,color=pcol[v])
 
       plt.show()
+
