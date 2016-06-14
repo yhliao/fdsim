@@ -14,6 +14,10 @@ pcol = { 'Ec' :'blue','Ev' :'green' ,
          'n'  :'red' ,'p'  :'yellow',
          'Efn':'red' ,'Efp':'yellow' }
 
+scol = { 'Ec' :'winter','Ev' :'summer' ,
+         'n'  :'autumn' ,'p'  :'spring',
+         'Efn':'autumn' ,'Efp':'spring' }
+
 #******* Classes for handling junctions & contacts  *******
 #* **They contain the properties of a junction or contact *
 #* needed for handling and solving the problems           *
@@ -423,15 +427,16 @@ class solver2D(__solver):
             data = self.__dict__[name]
             if name=='n' or name=='p':
                N = LogNorm(vmin=data.min(),vmax=data.max())
-               title = "Carrier concentration " + name + '$\ (m^{-3})$'
-            elif name=='Ec' or name=='Ev' or name=='Efn' or name=='Efp':
+               title = "Carrier concentration "+name+'$\ (m^{-3})$'
+            elif name=='Ec'or name=='Ev'or name=='Efn'or name=='Efp':
                N = Normalize(vmin=data.min(),vmax=data.max())
                title = "Energy " + name + ' (eV)'
             else: ## Jn, Jp, NB
                print ("Warning! Showing function for " + name +
                       " has not been implemented, ignored..")
                return
-            plt.matshow(data,extent=self.extent,norm=N)
+            plt.matshow(data,extent=self.extent,
+                        norm=N,cmap=scol[name])
             plt.title(title)
             plt.colorbar()
             plt.show()
