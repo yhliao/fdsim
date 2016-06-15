@@ -11,7 +11,7 @@ def overlap(p1,d1,p2,d2):
 
 def calc_offset(p1,d1,p2,d2):
    off1 = p1 - p2
-   (i,j) = (None,off1) if off1>=0 else (-off1,None)
+   (i,j) = (0,off1) if off1>=0 else (-off1,0)
 
    off2 = p1 + d1 - p2 -d2
    (k,l) = (-off2,None) if off2>0 else (None,off2)

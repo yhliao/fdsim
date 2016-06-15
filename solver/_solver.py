@@ -45,16 +45,14 @@ class junction(object):
       self.Et [i] = Et
 
 class contact(object):
-   __slots__ = ['idx','m','d','pflag','Ec','n','p']
-   def __init__(self,idx,m,d,pflag):
-      assert pflag == 1 or pflag == -1
+   __slots__ = ['idx','m','d','Ec','n','p']
+   def __init__(self,idx,m,d):
       if type(idx) is int:
          self.idx = [idx]
       else:
          self.idx   = idx
       self.m     = m
       self.d     = d
-      self.pflag = pflag
       self.Ec = V0 - m.phiS
       if m.type is "semiconductor":
          self.n  = m.ni
@@ -374,7 +372,8 @@ class solver2D(__solver):
 
       def __init__ (self, dx, dy, N, pos, material) :
          assert len(N) == 2
-         self.junc = [ [[],[]] , [[],[]] ]
+         self.junc    = [ [[],[]] , [[],[]] ]
+         self.contact = [ [[],[]] , [[],[]] ]
          self.pos = pos
          self.N   = N
          self.Nx  = N[0]
@@ -494,10 +493,10 @@ class solver2D(__solver):
                    " insulator stack won't be calculated")
          elif old.material.type is "insulator":
             pflag = 0 if (edge=='bottom'or edge =='right') else 1
-            old.junc[axis][pflag].append((junc,j,l))
+            old.junc[axis][pflag].append((junc,j,len(idx0)))
          elif new.material.type is "insulator":
             pflag = 0 if (edge=='top'or edge =='left') else 1
-            new.junc[axis][pflag].append((junc,i,k))
+            new.junc[axis][pflag].append((junc,i,len(idx1)))
 
       assert len(N)==2, "N must be a list containing the 2-D sizes"
       ##### Should not exit overlaps between meshes #####
@@ -538,7 +537,35 @@ class solver2D(__solver):
       return new
 
    def add_contact(self,x,y) :
-      ci = len(self.contact)
+
+      def log_contact(m,pos,N,axis,edge,n):
+         _,i,_,k = calc_offset(pos,N,m.pos[axis],m.N[axis])
+         if edge=='top':
+            assert axis == 1
+            idx   = m.t_idx[i:k]
+         elif edge == 'bottom' :
+            assert axis == 1
+            idx   = m.b_idx[i:k]
+         elif edge == 'left' :
+            assert axis == 0
+            idx   = m.l_idx[i:k]
+         elif edge == 'right' :
+            assert axis == 0 
+            idx   = m.r_idx[i:k]
+         else:
+            raise ValueError,("edge should be one of "
+            "'top' or 'bottom or 'left' or 'right'")
+
+         print("solver2D.add_contact: contact #{} added"
+               "\n\t*At {} of mesh #{}, length={}"
+               .format(len(self.contact),edge,n,len(idx)))
+         pflag = 1 if (edge=='bottom' or edge=='right') else 0
+         d     = self.dx if axis==1 else self.dy
+         new   = contact(idx,m.material,d)
+         self.contact.append(new)
+         if m.material.type is 'insulator':
+            m.contact[axis][pflag].append((new,i,len(idx)))
+         return new
 
       #### y contanct ####
       if type(x) is list and len(x)==2 and type(y) is int:
@@ -552,21 +579,11 @@ class solver2D(__solver):
 
          for n,m in enumerate(self.meshes):
             if overlap(x[0],Nx,m.pos[0],m.N[0]):
-               _,i,_,k = calc_offset(x[0],Nx,m.pos[0],m.N[0])
+               #_,i,_,k = calc_offset(x[0],Nx,m.pos[0],m.N[0])
                if y == m.pos[1] - 1:
-                  print("solver2D.add_contact: contact #{} added"
-                        "\n\t*At left of mesh #{}, length={}"
-                        .format(ci,n,len(m.l_idx[i:k])))
-                  new = contact(m.l_idx[i:k],m.material,self.dy,-1)
-                  self.contact.append(new)
-                  return new
+                  return log_contact(m,x[0],Nx,0,'left',n)
                elif y == m.pos[1] + m.N[1]:
-                  print("solver2D.add_contact: contact #{} added"
-                        "\n\t*At right of mesh #{}, length={}"
-                        .format(ci,n,len(m.r_idx[i:k])))
-                  new = contact(m.r_idx[i:k],m.material,self.dy,1)
-                  self.contact.append(new)
-                  return new
+                  return log_contact(m,x[0],Nx,0,'right',n)
          else:
             print("No connection with mesh detected, ignored")
       #### x contact ####
@@ -581,21 +598,11 @@ class solver2D(__solver):
 
          for n,m in enumerate(self.meshes):
             if overlap(y[0],Ny,m.pos[1],m.N[1]):
-               _,i,_,k = calc_offset(y[0],Ny,m.pos[1],m.N[1])
+               #_,i,_,k = calc_offset(y[0],Ny,m.pos[1],m.N[1])
                if x == m.pos[0] - 1:
-                  print("solver2D.add_contact: contact #{} added"
-                        "\n\t*At top of mesh #{}, length={}"
-                        .format(ci,n,len(m.t_idx[i:k])))
-                  new = contact(m.t_idx[i:k],m.material,self.dx,-1)
-                  self.contact.append(new)
-                  return new
+                  return log_contact(m,y[0],Ny,1,'top',n)
                elif x == m.pos[0] + m.N[0]:
-                  print("solver2D.add_contact: contact #{} added"
-                        "\n\t*At bottom of mesh #{}, length={}"
-                        .format(ci,n,len(m.b_idx[i:k])))
-                  new = contact(m.b_idx[i:k],m.material,self.dx,1)
-                  self.contact.append(new)
-                  return new
+                  return log_contact(m,y[0],Ny,1,'bottom',n)
          else:
             print("No connection with mesh detected, ignored")
       else:
