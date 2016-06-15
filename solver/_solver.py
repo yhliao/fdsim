@@ -373,13 +373,14 @@ class solver2D(__solver):
       def __init__ (self, dx, dy, N, pos, material) :
          assert len(N) == 2
          self.junc    = [ [[],[]] , [[],[]] ]
-         self.contact = [ [[],[]] , [[],[]] ]
+         #self.contact = [ [[],[]] , [[],[]] ]
          self.pos = pos
          self.N   = N
          self.Nx  = N[0]
          self.Ny  = N[1]
          self.dx  = dx
          self.dy  = dy
+         self.d   = [dx,dy]
          self.material = material
 
          self.NB  = np.zeros(N)
@@ -563,8 +564,8 @@ class solver2D(__solver):
          d     = self.dx if axis==1 else self.dy
          new   = contact(idx,m.material,d)
          self.contact.append(new)
-         if m.material.type is 'insulator':
-            m.contact[axis][pflag].append((new,i,len(idx)))
+         #if m.material.type is 'insulator':
+         #   m.contact[axis][pflag].append((new,i,len(idx)))
          return new
 
       #### y contanct ####

@@ -14,7 +14,7 @@ pi  = 3.14159
 
 class Si:
    __slots__=['type','epr','Nc','Nv','Dn','Dp',\
-              'taun','taup','Eg','phiS']
+              'taun','taup','meff','Eg','phiS']
    type = 'semiconductor'
    epr  = 11.7*ep0
    Nc   = 3.2e19*1e6
@@ -23,6 +23,7 @@ class Si:
    Dp   = .0470 * kBT
    taun = 1e-5
    taup = 1e-5
+   meff = me * 2.5
    Eg   = 1.12 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
    phiS = 4.05
@@ -34,7 +35,7 @@ class Si:
 
 class Ge:
    __slots__=['type','epr','Nc','Nv','Dn','Dp',\
-              'taun','taup','Eg','phiS']
+              'taun','taup','meff','Eg','phiS']
    type = 'semiconductor'
    epr  = 16*ep0
    Nc   = 3.2e19*1e6
@@ -43,6 +44,7 @@ class Ge:
    Dp   = .1900 * kBT
    taun = 1e-5
    taup = 1e-5
+   meff = me * 2.5
    Eg   = 0.66 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
    phiS = 4.15
@@ -53,10 +55,11 @@ class Ge:
       raise AttributeError, "Edit const.py to change the parameters"
 
 class SiO2:
-   __slots__=['type','epr','Eg','phiS']
+   __slots__=['type','epr','Eg','meff','phiS']
    type = 'insulator'
    epr  = 3.9*ep0
    Eg   = 9 # eV
+   meff = me * 2
    phiS = 0.95
    def __init__ (self):
       pass
@@ -66,11 +69,12 @@ class SiO2:
       raise AttributeError
 
 class PZT:
-   __slots__=['type','epr','Eg','phiS']
+   __slots__=['type','epr','Eg','meff','phiS']
    type = 'insulator'
    alpha = -4.89e7
    epr  = 1/(2*alpha)
    Eg   = 3# eV
+   meff = me * 2
    phiS = 3.35
    def __init__ (self):
       pass

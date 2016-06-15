@@ -6,8 +6,9 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
 
 from solver._solver import solver1D, solver2D
-from solver.util    import myDamper
+from solver.util    import overlap, calc_offset ,myDamper
 from solver.const   import q , kBT
+from solver.model   import TUNNELING
 
 ### TODO: mobility and lifetime variation changed with doping
 ### TODO: WKB
@@ -155,8 +156,37 @@ class J_solver1D(solver1D) :
       assert x == self.c_size
 
 class J_solver2D(solver2D):
+
+   class Tpath(object):
+      def __init__(self,m,axis,j0,j1):
+         assert m.material.type is 'insulator'
+         self.mdiel = m.material.meff
+         self.meff  = j0[0].m[1].meff
+         self.t     = m.d[axis] * m.N[axis]
+
+         i,j,k,l = calc_offset(j1[1],j1[2],j0[1],j0[2])
+         self.cidx0 = j0[0].idx[0][j:l]
+         self.Bidx0 = j0[0].idx[1][j:l]
+         self.cidx1 = j1[0].idx[1][i:k]
+         self.Bidx1 = j1[0].idx[0][i:k]
+         assert len(self.cidx0) == len(self.cidx1)
+         self.len = len(self.cidx0)
+         self.sim = TUNNELING( self.t, self.mdiel,
+                                       self.meff,  self.len)
+         print ("*** Tpath in J_solver2D:"
+                " A tunneling path has been logged\n" 
+                "\t(direction: axis{}, thickness: {}, length: {})"
+                 .format(axis,self.t,self.len))
+      def set(self,Ec):
+         self.sim.setEc(Ec[self.cidx0],Ec[self.cidx1],
+                        Ec[self.Bidx0],Ec[self.Bidx1])
+      def calc_Jt(self,Efn,JBV):
+         J = self.sim.TSUESAKI(Efn[self.cidx0],Efn[self.cidx1])
+         pass
+
    def __init__(self,dx,dy):
       super(J_solver2D,self).__init__(dx,dy)
+      self.paths = []
 
    def construct_profile(self):
       super(J_solver2D,self).construct_profile()
@@ -174,6 +204,18 @@ class J_solver2D(solver2D):
       csize = sum([len(c) for c in self.contact])
       self.dcn = np.zeros(csize)
       self.dcp = np.zeros(csize)
+      for m in self.meshes:
+         if m.material.type is 'insulator':
+            mdiel = m.material.meff
+            for ax in [0,1]:
+               a = 0 if ax == 1 else 1
+               for j1 in m.junc[ax][1]:
+                  for j0 in m.junc[ax][0]:
+                     if j1[0].m[0] == j0[0].m[1] and\
+                        overlap(j1[1],j1[2],j0[1],j0[2]):
+                        print ("A tunneling path is detected")
+                        newp = self.Tpath(m,a,j0,j1)
+                        self.paths.append(newp)
 
    def _continuity(self):
       ## free the spaces before creating new profile
@@ -280,13 +322,19 @@ class J_solver2D(solver2D):
 
    def solve_current(self,tunneling=False):
       self._continuity()
-      ## TODO: set E for TUNNELING
       if tunneling:
+         ## setup for tunneling calculation
+         for p in self.paths:
+            p.set(self.Ec)
          while abs(errn) > tol or abs(errp) > tol:
             self.solve_np()
+            for p in self.paths:
+               p.calc_Jt(self.Efn,self.__JnBV)
             ## TUNNELING
             ## set __JnBV
             ## log Efn Efp calculate error
+         print ("**** J_solver 2D.solve_current"
+                " (with tunneling simulation): converge!****")
       else:
          self.solve_np()
 
