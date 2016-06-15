@@ -635,10 +635,8 @@ class solver2D(__solver):
       ax = fig.add_subplot(111, projection='3d')
       for m in self.meshes:
          for v in vlist:
-            #if hasattr(m,v):
             if m.material.type is 'semiconductor':
                ax.plot_surface(m.vx,m.vy,m.__dict__[v],\
-                      rstride=2,cstride=2,color=pcol[v])
-
+                      rstride=2,cstride=2,cmap=scol[v])
       plt.show()
 

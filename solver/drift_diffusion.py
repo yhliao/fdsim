@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function, division
 
 import numpy as np
 
+import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
 
 from solver._solver import solver1D, solver2D
@@ -17,7 +18,7 @@ from solver.const   import q , kBT
 # for hole current, the An, Bn should be swithed #
 ##################################################
 def SGn(t,Dn,d):
-   idx_c = t != 0
+   idx_c = abs(t) > 1e-7
    An = -Dn/(d**2) * np.ones(len(t))
    Bn =  Dn/(d**2) * np.ones(len(t))
    An[idx_c] *= -t[idx_c]/(np.exp(-t[idx_c])-1)
@@ -43,6 +44,9 @@ class J_solver1D(solver1D) :
       csize = len(self.contact)
       self.dcn = np.zeros(csize)
       self.dcp = np.zeros(csize)
+      for j in self.junc:
+         if j.isins():
+            print("An insulating junction")
 
    def _continuity(self):
       ## free the spaces before creating new profile
@@ -103,9 +107,6 @@ class J_solver1D(solver1D) :
          self.Efnlog = np.array(self.Efn)
          self.Efplog = np.array(self.Efp)
 
-      self._continuity()
-      #DN = myDamper(0.5)
-      #DP = myDamper(0.5)
       (errn,errp) = (1,1)
       time = 0
       while abs(errn) > tol or abs(errp) > tol:
@@ -134,7 +135,8 @@ class J_solver1D(solver1D) :
       print ("\n1D current solver: converge!")
       self.write_mesh(['Efn','Efp','n','p'])
 
-   def __WKB(self):
+   def solve_J(self):
+      self._continuity()
       pass
 
    def _SRH(self):
@@ -188,13 +190,13 @@ class J_solver2D(solver2D):
          jy = iy + m.Nx*(m.Ny-1)
          if m.material.type is 'semiconductor':
             ##### for x-direction #####
-            tx = -np.diff(m.Ec,axis=0).reshape(m.Ny*(m.Nx-1)) / kBT
+            tx= -np.diff(m.Ec,axis=0).reshape(m.Ny*(m.Nx-1))/kBT
             dnn[0][0][ix:jx],dnn[0][1][ix:jx]=\
                         SGn(tx,m.material.Dn,self.dx)
             dnp[0][1][ix:jx],dnp[0][0][ix:jx]=\
                         SGn(tx,m.material.Dp,self.dx)
             ##### for y-direction #####
-            ty = -np.diff(m.Ec,axis=1).reshape(m.Nx*(m.Ny-1)) / kBT
+            ty= -np.diff(m.Ec,axis=1).T.reshape(m.Nx*(m.Ny-1))/kBT
             dnn[1][0][iy:jy],dnn[1][1][iy:jy]=\
                         SGn(ty,m.material.Dn,self.dy)
             dnp[1][1][iy:jy],dnp[1][0][iy:jy]=\
@@ -249,19 +251,19 @@ class J_solver2D(solver2D):
       if not hasattr(self,'Efnlog'):
          self.Efnlog = np.array(self.Efn)
          self.Efplog = np.array(self.Efp)
-
       self._continuity()
+
       (errn,errp) = (1,1)
       time = 0
       while abs(errn) > tol or abs(errp) > tol:
          time += 1
          self._SRH()
-         contn = self.__DJn - sp.diags(
-                 self.p * self.__SRH[0,:],0,format='csr')
-         contp = self.__DJp + sp.diags(
-                 self.n * self.__SRH[0,:],0,format='csr')
-         self.n[:] = spsolve(contn, self.__JnBV + self.__SRH[1,:])
-         self.p[:] = spsolve(contp, self.__JpBV - self.__SRH[1,:])
+         contn = self.__DJn #- sp.diags(
+                 #self.p * self.__SRH[0,:],0,format='csr')
+         contp = self.__DJp #+ sp.diags(
+                 #self.n * self.__SRH[0,:],0,format='csr')
+         self.n[:] = spsolve(contn, self.__JnBV) #+ self.__SRH[1,:])
+         self.p[:] = spsolve(contp, self.__JpBV) #- self.__SRH[1,:])
 
          ### calculate the errors, and log the results
          self.calc_Ef()
@@ -276,8 +278,17 @@ class J_solver2D(solver2D):
       print ("\n1D current solver: converge!")
       self.write_mesh(['Efn','Efp','n','p'])
 
-   def __WKB(self):
-      pass
+   def solve_current(self,tunneling=False):
+      self._continuity()
+      ## TODO: set E for TUNNELING
+      if tunneling:
+         while abs(errn) > tol or abs(errp) > tol:
+            self.solve_np()
+            ## TUNNELING
+            ## set __JnBV
+            ## log Efn Efp calculate error
+      else:
+         self.solve_np()
 
    def _SRH(self):
       if not hasattr(self,'__SRH'):
