@@ -11,7 +11,6 @@ from solver.const   import q , kBT
 from solver.model   import TUNNELING
 
 ### TODO: mobility and lifetime variation changed with doping
-### TODO: WKB
 
 ###### Using Scharfetter-Gummel expression #######
 # functions for n, p continuity equations        #
@@ -82,9 +81,6 @@ class J_solver1D(solver1D) :
             Yp, dcp[m] = SGn(t, c.m.Dp, c.d)
             self.__JnBV[c.idx] = -c.n * Yn
             self.__JpBV[c.idx] = -c.p * Yp
-            #X,Y = SGn(np.array([t]), c.m.Dn, c.d)
-            #dcn[m]  = X
-            #self.__JnBV[c.idx] = -c.n * Y
 
       dn = np.concatenate(( djn[1],-djn[0],-djn[1], djn[0], 
                             dnn[1],-dnn[0], dnn[0],-dnn[1],dcn))
@@ -128,16 +124,14 @@ class J_solver1D(solver1D) :
          errp = dEfp[np.argmax(abs(dEfp))]
          print("1D current solver: {}th iteration,err={:.6},{:.6}"
                  .format(time,errn,errp),end= "......\r")
-         #self.Efn[:] = self.Efnlog + dEfn * DN(errn) / errn
-         #self.Efp[:] = self.Efplog + dEfp * DP(errp) / errp
          self.Efnlog[:] = self.Efn
          self.Efplog[:] = self.Efp
-         #self.calc_np()
       print ("\n1D current solver: converge!")
-      self.write_mesh(['Efn','Efp','n','p'])
 
-   def solve_J(self):
-      self._continuity()
+      self.write_mesh(['Efn','Efp','n','p'])
+   def solve_current(self,tol=1e-3):
+      self._continuity(tol)
+      self.solve_np()
       pass
 
    def _SRH(self):
@@ -155,34 +149,43 @@ class J_solver1D(solver1D) :
          x = y
       assert x == self.c_size
 
+class Tpath(object):
+
+   def __init__(self,m,axis,j0,j1):
+      assert m.material.type is 'insulator'
+      self.ax    = axis
+      self.mesh  = m
+
+      self.mdiel = m.material.meff
+      self.meff  = j0[0].m[1].meff
+      self.t     = m.d[axis] * m.N[axis]
+      i,j,k,l = calc_offset(j1[1],j1[2],j0[1],j0[2])
+      self.cidx0 = j0[0].idx[0][j:l]
+      self.Bidx0 = j0[0].idx[1][j:l]
+      self.cidx1 = j1[0].idx[1][i:k]
+      self.Bidx1 = j1[0].idx[0][i:k]
+      assert len(self.cidx0) == len(self.cidx1)
+      self.len = len(self.cidx0)
+      self.sim = TUNNELING( self.t, self.mdiel,
+                                    self.meff,  self.len)
+      print ("*** Tpath in J_solver2D:"
+             " A tunneling path has been logged\n" 
+             "\t(direction: axis{}, thickness: {}, length: {})"
+              .format(axis,self.t,self.len))
+   def set(self,Ec):
+      self.sim.setEc(Ec[self.cidx0],Ec[self.cidx1],
+                     Ec[self.Bidx0],Ec[self.Bidx1])
+   def calc_Jt(self,Efn,JnBV):
+      J  = self.sim.TSUESAKI(Efn[self.cidx0],Efn[self.cidx1])
+
+      lat = 1 if self.ax ==0 else 0
+      print ("Tpath: tunneling current =", sum(J)*self.mesh.d[lat])
+      bv = J / q / self.mesh.d[self.ax]
+      #* self.mesh.d[lat] / q / self.mesh.d[self.ax]
+      JnBV[self.cidx0] = -bv
+      JnBV[self.cidx1] = bv
+
 class J_solver2D(solver2D):
-
-   class Tpath(object):
-      def __init__(self,m,axis,j0,j1):
-         assert m.material.type is 'insulator'
-         self.mdiel = m.material.meff
-         self.meff  = j0[0].m[1].meff
-         self.t     = m.d[axis] * m.N[axis]
-
-         i,j,k,l = calc_offset(j1[1],j1[2],j0[1],j0[2])
-         self.cidx0 = j0[0].idx[0][j:l]
-         self.Bidx0 = j0[0].idx[1][j:l]
-         self.cidx1 = j1[0].idx[1][i:k]
-         self.Bidx1 = j1[0].idx[0][i:k]
-         assert len(self.cidx0) == len(self.cidx1)
-         self.len = len(self.cidx0)
-         self.sim = TUNNELING( self.t, self.mdiel,
-                                       self.meff,  self.len)
-         print ("*** Tpath in J_solver2D:"
-                " A tunneling path has been logged\n" 
-                "\t(direction: axis{}, thickness: {}, length: {})"
-                 .format(axis,self.t,self.len))
-      def set(self,Ec):
-         self.sim.setEc(Ec[self.cidx0],Ec[self.cidx1],
-                        Ec[self.Bidx0],Ec[self.Bidx1])
-      def calc_Jt(self,Efn,JBV):
-         J = self.sim.TSUESAKI(Efn[self.cidx0],Efn[self.cidx1])
-         pass
 
    def __init__(self,dx,dy):
       super(J_solver2D,self).__init__(dx,dy)
@@ -194,10 +197,10 @@ class J_solver2D(solver2D):
       self.__JpBV = np.zeros(self.c_size)
       nxsize = self.neighbor['x'].shape[1]
       nysize = self.neighbor['y'].shape[1]
-      self.dnn = [[np.ones(nxsize),np.ones(nxsize)],
-                  [np.ones(nysize),np.ones(nysize)]]
-      self.dnp = [[np.ones(nxsize),np.ones(nxsize)],
-                  [np.ones(nysize),np.ones(nysize)]]
+      self.dnn = [[np.ones(nxsize), np.ones(nxsize)],
+                  [np.ones(nysize), np.ones(nysize)]]
+      self.dnp = [[np.ones(nxsize), np.ones(nxsize)],
+                  [np.ones(nysize), np.ones(nysize)]]
       jsize = sum([len(j) for j in self.junc]) 
       self.djn = [np.zeros(jsize),np.zeros(jsize)]
       self.djp = [np.zeros(jsize),np.zeros(jsize)]
@@ -214,7 +217,7 @@ class J_solver2D(solver2D):
                      if j1[0].m[0] == j0[0].m[1] and\
                         overlap(j1[1],j1[2],j0[1],j0[2]):
                         print ("A tunneling path is detected")
-                        newp = self.Tpath(m,a,j0,j1)
+                        newp = Tpath(m,a,j0,j1)
                         self.paths.append(newp)
 
    def _continuity(self):
@@ -289,54 +292,65 @@ class J_solver2D(solver2D):
             self.__DJp[i,i] += 1
       del DJn, DJp
 
-   def solve_np(self,tol=1e-5):
+   def solve_np(self,tol=1e-5,SRH=True):
       if not hasattr(self,'Efnlog'):
          self.Efnlog = np.array(self.Efn)
          self.Efplog = np.array(self.Efp)
-      self._continuity()
 
       (errn,errp) = (1,1)
       time = 0
-      while abs(errn) > tol or abs(errp) > tol:
+      while errn > tol or errp > tol:
          time += 1
-         self._SRH()
-         contn = self.__DJn #- sp.diags(
-                 #self.p * self.__SRH[0,:],0,format='csr')
-         contp = self.__DJp #+ sp.diags(
-                 #self.n * self.__SRH[0,:],0,format='csr')
-         self.n[:] = spsolve(contn, self.__JnBV) #+ self.__SRH[1,:])
-         self.p[:] = spsolve(contp, self.__JpBV) #- self.__SRH[1,:])
+         (contn,contp) = (self.__DJn, self.__DJp)
+         (bvn,  bvp  ) = (self.__JnBV,self.__JpBV)
+         if SRH:
+            self._SRH()
+            contn = contn -\
+               sp.diags(self.p*self.__SRH[0,:],0,format='csr')
+            contp = contp +\
+               sp.diags(self.n*self.__SRH[0,:],0,format='csr')
+            bvn += self.__SRH[1,:]
+            bvp -= self.__SRH[1,:]
+
+         self.n[:] = spsolve(contn, bvn)
+         self.p[:] = spsolve(contp, bvp)
 
          ### calculate the errors, and log the results
          self.calc_Ef()
-         dEfn = self.Efn - self.Efnlog
-         dEfp = self.Efp - self.Efplog
-         errn = dEfn[np.argmax(abs(dEfn))]
-         errp = dEfp[np.argmax(abs(dEfp))]
-         print("1D current solver: {}th iteration,err={:.6},{:.6}"
+         errn = max(abs(self.Efn-self.Efnlog))
+         errp = max(abs(self.Efp-self.Efplog))
+         print("2D current solver: {}th iteration,err={:.6},{:.6}"
                  .format(time,errn,errp),end= "......\r")
          self.Efnlog[:] = self.Efn
          self.Efplog[:] = self.Efp
-      print ("\n1D current solver: converge!")
-      self.write_mesh(['Efn','Efp','n','p'])
+      print ("\n2D current solver: converge!")
 
-   def solve_current(self,tunneling=False):
+   def solve_current(self,tol=1e-3,SRH=True,tunneling=False):
       self._continuity()
+      if not hasattr(self,'Efnold'):
+         self.Efnold = np.array(self.Efn)
+         self.Efpold = np.array(self.Efp)
+
       if tunneling:
          ## setup for tunneling calculation
          for p in self.paths:
             p.set(self.Ec)
-         while abs(errn) > tol or abs(errp) > tol:
-            self.solve_np()
+         errn = errp = 1
+         while errn > tol or errp > tol:
+
+            self.solve_np(tol,SRH)
             for p in self.paths:
                p.calc_Jt(self.Efn,self.__JnBV)
-            ## TUNNELING
-            ## set __JnBV
-            ## log Efn Efp calculate error
+            ## calculate error and log Ef
+            errn = max(abs(self.Efn-self.Efnold))
+            errp = max(abs(self.Efp-self.Efpold))
+            self.Efnold[:] = self.Efn
+            self.Efpold[:] = self.Efp
          print ("**** J_solver 2D.solve_current"
                 " (with tunneling simulation): converge!****")
       else:
-         self.solve_np()
+         self.solve_np(tol)
+      self.write_mesh(['Efn','Efp','n','p'])
 
    def _SRH(self):
       if not hasattr(self,'__SRH'):
@@ -352,3 +366,4 @@ class J_solver2D(solver2D):
             self.__SRH[1,x:y]= - mat.ni**2 * self.__SRH[0,x:y]
          x = y
       assert x == self.c_size
+
