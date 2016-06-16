@@ -39,17 +39,18 @@ class dev_solver2D(p_solver2D, J_solver2D):
       super(dev_solver2D,self).construct_profile()
       self.Eclog = np.array(self.Ec)
 
-   def solve(self,tol=1e-5):
+   def solve(self,tol=1e-3,SRH=True,tunneling=False):
       self.reset_EcBV()
       time = 0
       errE = 1
       while errE > tol:
          self.solve_nlpoisson(tol)
-         self.solve_np()
+         self.solve_current(tol,SRH,tunneling)
          errE = max(abs(self.Ec-self.Eclog))
          time += 1
-         print ("2D device solver: {}th iteration, err={:.6}"
-                  .format(time,errE))
+         print ("==== 2D device solver: {}th iteration"
+                ", err={:.6} ====\n".format(time,errE))
          self.Eclog[:] = self.Ec
          #self.visualize(['Ec','Ev','Efn','Efp'])
-      print ("\n2D device solver: converge!")
+      print (" 2D device solver: converge! ")
+      self.summarize()

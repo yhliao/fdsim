@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import LogNorm, Normalize
 
-from solver.const import kBT, mdb
+from solver.const import kBT, mdb ,q
 from solver.util import overlap, calc_offset
 
 V0   =  4.5
@@ -45,7 +45,7 @@ class junction(object):
       self.Et [i] = Et
 
 class contact(object):
-   __slots__ = ['idx','m','d','Ec','n','p']
+   #__slots__ = ['idx','m','d','Ec','n','p']
    def __init__(self,idx,m,d):
       if type(idx) is int:
          self.idx = [idx]
@@ -77,11 +77,15 @@ class contact1(object):
       self.pflag = flag
       self.Q     = 0
       self.d     = d
-#************* Base class for all solvers  ****************
-#* ** It defines the common routines which will be used   *
-#* to construct and manage the 1-D representative vectors *
-#**********************************************************
+
 class __solver(object):
+
+   """
+   ************* Base class for all solvers  ****************
+   * ** It defines the common routines which will be used   *
+   * to construct and manage the 1-D representative vectors *
+   **********************************************************
+   """
 
    def __init__(self):
       self.meshes  = []
@@ -207,45 +211,49 @@ class __solver(object):
    def visualize(self,vlist):
       pass
 
-#********** Base class for handling 1-D problem ***********
-#* ** When handling heterojunctions, meshes with diffrent *
-#* materials should be added, their properties will be    *
-#* handled by the solver                                  *
-#* ** It can be the base class of practical solvers, e.g. *
-#* poisson solver and drift-diffusion solver              *
-#**********************************************************
+class mesh1D(object):
+
+   def __init__ (self,dx,N,pos,material):
+      self.pos = pos
+      self.N   = N
+      self.dx  = dx
+      self.material = material
+      self.NB = np.zeros(N)
+      self.Jn = np.zeros(N)
+      self.Jp = np.zeros(N)
+      self.Ec = (V0 - material.phiS) * np.ones(N)
+      self.Ev = self.Ec - material.Eg
+      if material.type == 'semiconductor' :
+         self.n    = material.ni * np.ones(N)
+         self.p    = material.ni * np.ones(N)
+         self.Efn  = (self.Ec + self.Ev) /2
+         self.Efp  = (self.Ec + self.Ev) /2
+         self.GRR  = np.zeros(N)
+      elif material.type == 'insulator' :
+         pass
+      else:
+         raise ValueError, \
+          "mesh2D() Error, material type (%s) unknown!"\
+           %(material.type)
+      self.vx = dx * (np.arange(N)+pos)
+   def idxlog(self,startidx):
+      self.l_idx = startidx
+      self.r_idx = startidx + self.N-1
+   @property
+   def size(self):
+      return self.N
+
 class solver1D(__solver):
 
-   class mesh1D(object):
-      def __init__ (self,dx,N,pos,material):
-         self.pos = pos
-         self.N   = N
-         self.dx  = dx
-         self.material = material
-         self.NB = np.zeros(N)
-         self.Jn = np.zeros(N)
-         self.Jp = np.zeros(N)
-         self.Ec = (V0 - material.phiS) * np.ones(N)
-         self.Ev = self.Ec - material.Eg
-         if material.type == 'semiconductor' :
-            self.n    = material.ni * np.ones(N)
-            self.p    = material.ni * np.ones(N)
-            self.Efn  = (self.Ec + self.Ev) /2
-            self.Efp  = (self.Ec + self.Ev) /2
-            self.GRR  = np.zeros(N)
-         elif material.type == 'insulator' :
-            pass
-         else:
-            raise ValueError, \
-             "mesh2D() Error, material type (%s) unknown!"\
-              %(material.type)
-         self.vx = dx * (np.arange(N)+pos)
-      def idxlog(self,startidx):
-         self.l_idx = startidx
-         self.r_idx = startidx + self.N-1
-      @property
-      def size(self):
-         return self.N
+   """
+   ********** Base class for handling 1-D problem ***********
+   * ** When handling heterojunctions, meshes with diffrent *
+   * materials should be added, their properties will be    *
+   * handled by the solver                                  *
+   * ** It can be the base class of practical solvers, e.g. *
+   * poisson solver and drift-diffusion solver              *
+   **********************************************************
+   """
 
    def __init__ (self, dx) :
       super(solver1D,self).__init__()
@@ -359,93 +367,96 @@ class solver1D(__solver):
       plt.xlim([0,self.c_size])
       plt.show()
 
-#********** Base class for handling 2-D problem ***********
-#* ** It defines how to relate the meshes to a 1-D        *
-#* representative vector, and how to manage the boundary  *
-#* of the meshes.                                         *
-#* ** It can be the base class of practical solvers, e.g. *
-#* poisson solver and drift-diffusion solver.             *
-#**********************************************************
+class mesh2D(object):
+
+   def __init__ (self, dx, dy, N, pos, material) :
+      assert len(N) == 2
+      self.junc    = [ [[],[]] , [[],[]] ]
+      #self.contact = [ [[],[]] , [[],[]] ]
+      self.pos = pos
+      self.N   = N
+      self.Nx  = N[0]
+      self.Ny  = N[1]
+      self.dx  = dx
+      self.dy  = dy
+      self.d   = [dx,dy]
+      self.material = material
+
+      self.NB  = np.zeros(N)
+      self.Jn = np.zeros(N)
+      self.Jp = np.zeros(N)
+      self.Ec  = (V0 - material.phiS) * np.ones(N)
+      self.Ev  = self.Ec - material.Eg
+      if material.type == 'semiconductor' :
+         self.n    = material.ni * np.ones(N)
+         self.p    = material.ni * np.ones(N)
+         self.Efn  = (self.Ec + self.Ev) /2
+         self.Efp  = (self.Ec + self.Ev) /2
+         #self.GRR  = np.zeros(N)
+      elif material.type == 'insulator' :
+         pass
+      else:
+         raise ValueError, \
+          "mesh2D() Error, material type (%s) unknown!"\
+           %(material.type)
+
+      x = dx * (np.arange(N[0]) + pos[0])
+      y = dy * (np.arange(N[1]) + pos[1])
+      self.vx, self.vy = np.meshgrid(x,y)
+      self.vx = self.vx.T
+      self.vy = self.vy.T
+
+      ### position of the mesh
+      self.extent = (dx* pos[0],        ## left
+                     dx* (pos[0]+N[0]), ## right
+                     dy* (pos[1]+N[1]), ## bottom
+                     dy* pos[1]       ) ## top
+
+   def idxlog(self,startidx):
+      self.l_idx = np.arange(self.Nx)*self.Ny + startidx
+      self.t_idx = np.arange(self.Ny) + startidx
+      self.r_idx = self.l_idx + self.Ny -1
+      self.b_idx = self.t_idx + self.Ny * (self.Nx -1)
+      # moving junction management function to the solvers 
+
+   @property
+   def size(self):
+      return self.Nx * self.Ny
+
+   def cshow(self,name):
+      if hasattr(self,name):
+         data = self.__dict__[name]
+         if name=='n' or name=='p':
+            N = LogNorm(vmin=data.min(),vmax=data.max())
+            title = "Carrier concentration "+name+'$\ (m^{-3})$'
+         elif name=='Ec'or name=='Ev'or name=='Efn'or name=='Efp':
+            N = Normalize(vmin=data.min(),vmax=data.max())
+            title = "Energy " + name + ' (eV)'
+         else: ## Jn, Jp, NB
+            print ("Warning! Showing function for " + name +
+                   " has not been implemented, ignored..")
+            return
+         plt.matshow(data,extent=self.extent,
+                     norm=N,cmap=scol[name])
+         plt.title(title)
+         plt.colorbar()
+         plt.show()
+      else:
+         print (("mesh.show: Warning, this mesh (type:{})"
+                 "doesn't has attribute {}, ignored")
+                .format(self.material.type,name))
+
 class solver2D(__solver):
 
-   class mesh2D(object):
-
-      def __init__ (self, dx, dy, N, pos, material) :
-         assert len(N) == 2
-         self.junc    = [ [[],[]] , [[],[]] ]
-         #self.contact = [ [[],[]] , [[],[]] ]
-         self.pos = pos
-         self.N   = N
-         self.Nx  = N[0]
-         self.Ny  = N[1]
-         self.dx  = dx
-         self.dy  = dy
-         self.d   = [dx,dy]
-         self.material = material
-
-         self.NB  = np.zeros(N)
-         self.Jn = np.zeros(N)
-         self.Jp = np.zeros(N)
-         self.Ec  = (V0 - material.phiS) * np.ones(N)
-         self.Ev  = self.Ec - material.Eg
-         if material.type == 'semiconductor' :
-            self.n    = material.ni * np.ones(N)
-            self.p    = material.ni * np.ones(N)
-            self.Efn  = (self.Ec + self.Ev) /2
-            self.Efp  = (self.Ec + self.Ev) /2
-            #self.GRR  = np.zeros(N)
-         elif material.type == 'insulator' :
-            pass
-         else:
-            raise ValueError, \
-             "mesh2D() Error, material type (%s) unknown!"\
-              %(material.type)
-
-         x = dx * (np.arange(N[0]) + pos[0])
-         y = dy * (np.arange(N[1]) + pos[1])
-         self.vx, self.vy = np.meshgrid(x,y)
-         self.vx = self.vx.T
-         self.vy = self.vy.T
-
-         ### position of the mesh
-         self.extent = (dy* pos[1],        ## left
-                        dy* (pos[1]+N[1]), ## right
-                        dx* (pos[0]+N[0]), ## bottom
-                        dx* pos[0]       ) ## top
-
-      def idxlog(self,startidx):
-         self.l_idx = np.arange(self.Nx)*self.Ny + startidx
-         self.t_idx = np.arange(self.Ny) + startidx
-         self.r_idx = self.l_idx + self.Ny -1
-         self.b_idx = self.t_idx + self.Ny * (self.Nx -1)
-         # moving junction management function to the solvers 
-
-      @property
-      def size(self):
-         return self.Nx * self.Ny
-
-      def cshow(self,name):
-         if hasattr(self,name):
-            data = self.__dict__[name]
-            if name=='n' or name=='p':
-               N = LogNorm(vmin=data.min(),vmax=data.max())
-               title = "Carrier concentration "+name+'$\ (m^{-3})$'
-            elif name=='Ec'or name=='Ev'or name=='Efn'or name=='Efp':
-               N = Normalize(vmin=data.min(),vmax=data.max())
-               title = "Energy " + name + ' (eV)'
-            else: ## Jn, Jp, NB
-               print ("Warning! Showing function for " + name +
-                      " has not been implemented, ignored..")
-               return
-            plt.matshow(data,extent=self.extent,
-                        norm=N,cmap=scol[name])
-            plt.title(title)
-            plt.colorbar()
-            plt.show()
-         else:
-            print (("mesh.show: Warning, this mesh (type:{})"
-                    "doesn't has attribute {}, ignored")
-                   .format(self.material.type,name))
+   """
+   ********** Base class for handling 2-D problem ***********
+   * ** It defines how to relate the meshes to a 1-D        *
+   * representative vector, and how to manage the boundary  *
+   * of the meshes.                                         *
+   * ** It can be the base class of practical solvers, e.g. *
+   * poisson solver and drift-diffusion solver.             *
+   **********************************************************
+   """
 
    # containing the indice of neighboring pair
    def __init__ (self, dx, dy) :
@@ -507,7 +518,7 @@ class solver2D(__solver):
          raise RuntimeError,\
           "solver2D.add_mesh ERROR, mesh overlap detected!!"
 
-      new = self.mesh2D(self.dx,self.dy, N, pos, mdb[material])
+      new = mesh2D(self.dx,self.dy, N, pos, mdb[material])
       new.idxlog(self.c_size)
       print ("solver2D.add_mesh: mesh #{} added, idx={}~{}".format
        (len(self.meshes),self.c_size,self.c_size+N[0]*N[1]-1))
@@ -664,3 +675,16 @@ class solver2D(__solver):
                       rstride=2,cstride=2,cmap=scol[v])
       plt.show()
 
+   def summarize(self):
+      from solver.drift_diffusion import SGn
+      for c in self.contact:
+         lat = self.dx if c.d==self.dy else self.dy
+         dE = self.Ec[c.idx] - c.Ec
+         An,Bn = SGn(-dE/kBT, c.m.Dn, c.d) 
+         Bp,Ap = SGn(-dE/kBT, c.m.Dp, c.d) 
+         Jn = q* (An * c.n + Bn * self.n[c.idx]) * c.d
+         Jp = q* (Ap * c.p + Bp * self.p[c.idx]) * c.d
+         D = c.m.epr * dE / c.d
+         c.Jn = sum(Jn) * lat
+         c.Jp = sum(Jp) * lat
+         c.Q  = sum(D)  * lat
