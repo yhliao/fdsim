@@ -99,40 +99,40 @@ class J_solver1D(solver1D) :
             self.__DJp[i,i] += 1
       del DJn, DJp
 
-   def solve_np(self,tol=1e-3):
+   def solve_np(self,tol=1e-5,SRH=True):
       if not hasattr(self,'Efnlog'):
          self.Efnlog = np.array(self.Efn)
          self.Efplog = np.array(self.Efp)
 
       (errn,errp) = (1,1)
       time = 0
-      while abs(errn) > tol or abs(errp) > tol:
+      while errn > tol or errp > tol:
          time += 1
-         self._SRH()
-         contn = self.__DJn - sp.diags(
-                 self.p * self.__SRH[0,:],0,format='csr')
-         contp = self.__DJp + sp.diags(
-                 self.n * self.__SRH[0,:],0,format='csr')
-         self.n[:] = spsolve(contn, self.__JnBV + self.__SRH[1,:])
-         self.p[:] = spsolve(contp, self.__JpBV - self.__SRH[1,:])
+         (cn,cp) = (0,0)
+         (bvn,bvp) = (0,0)
+         if SRH:
+            self._SRH()
+            cn =-sp.diags(self.p*self.__SRH[0,:],0,format='csr')
+            cp = sp.diags(self.n*self.__SRH[0,:],0,format='csr')
+            bvn =  self.__SRH[1,:]
+            bvp = -self.__SRH[1,:]
+
+         self.n[:] = spsolve(self.__DJn + cn, self.__JnBV + bvn)
+         self.p[:] = spsolve(self.__DJp + cp, self.__JpBV + bvp)
 
          ### calculate the errors, and log the results
          self.calc_Ef()
-         dEfn = self.Efn - self.Efnlog
-         dEfp = self.Efp - self.Efplog
-         errn = dEfn[np.argmax(abs(dEfn))]
-         errp = dEfp[np.argmax(abs(dEfp))]
+         errn = max(abs(self.Efn-self.Efnlog))
+         errp = max(abs(self.Efp-self.Efplog))
          print("1D current solver: {}th iteration,err={:.6},{:.6}"
                  .format(time,errn,errp),end= "......\r")
          self.Efnlog[:] = self.Efn
          self.Efplog[:] = self.Efp
       print ("\n1D current solver: converge!")
 
-      self.write_mesh(['Efn','Efp','n','p'])
-   def solve_current(self,tol=1e-3):
-      self._continuity(tol)
-      self.solve_np()
-      pass
+   def solve_current(self,tol=1e-3,SRH=True):
+      self._continuity()
+      self.solve_np(tol,SRH)
 
    def _SRH(self):
       if not hasattr(self,'__SRH'):
@@ -301,19 +301,17 @@ class J_solver2D(solver2D):
       time = 0
       while errn > tol or errp > tol:
          time += 1
-         (contn,contp) = (self.__DJn, self.__DJp)
-         (bvn,  bvp  ) = (self.__JnBV,self.__JpBV)
+         (cn,cp) = (0,0)
+         (bvn,bvp) = (0,0)
          if SRH:
             self._SRH()
-            contn = contn -\
-               sp.diags(self.p*self.__SRH[0,:],0,format='csr')
-            contp = contp +\
-               sp.diags(self.n*self.__SRH[0,:],0,format='csr')
-            bvn += self.__SRH[1,:]
-            bvp -= self.__SRH[1,:]
+            cn =-sp.diags(self.p*self.__SRH[0,:],0,format='csr')
+            cp = sp.diags(self.n*self.__SRH[0,:],0,format='csr')
+            bvn =  self.__SRH[1,:]
+            bvp = -self.__SRH[1,:]
 
-         self.n[:] = spsolve(contn, bvn)
-         self.p[:] = spsolve(contp, bvp)
+         self.n[:] = spsolve(self.__DJn + cn, self.__JnBV + bvn)
+         self.p[:] = spsolve(self.__DJp + cp, self.__JpBV + bvp)
 
          ### calculate the errors, and log the results
          self.calc_Ef()
