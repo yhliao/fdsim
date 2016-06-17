@@ -16,13 +16,13 @@ class dev_solver1D(p_solver1D, J_solver1D):
       super(dev_solver1D,self).construct_profile()
       self.Eclog = np.array(self.Ec)
 
-   def solve(self,tol=1e-3):
+   def solve(self,tol=1e-3,SRH=True):
       self.reset_EcBV()
       time = 0
       errE = 1
       while errE > tol:
          self.solve_nlpoisson(tol)
-         self.solve_np()
+         self.solve_current(tol,SRH)
          errE = max(abs(self.Ec-self.Eclog))
          time += 1
          print ("1D device solver: {}th iteration, err={:.6}"
