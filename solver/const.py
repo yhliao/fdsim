@@ -21,8 +21,8 @@ class Si:
    Nv   = 1.8e19*1e6
    Dn   = .1430 * kBT
    Dp   = .0470 * kBT
-   taun = 1e-5
-   taup = 1e-5
+   taun = 1e-8
+   taup = 1e-8
    meff = me * 0.98
    Eg   = 1.12 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))

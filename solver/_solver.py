@@ -265,7 +265,7 @@ class solver1D(__solver):
       if any([overlap(pos,N,m.pos,m.N) for m in self.meshes]) :
          raise RuntimeError,\
           "solver1D.add_mesh ERROR, mesh overlap detected!!"
-      new = self.mesh1D(self.dx,N,pos,mdb[material])
+      new = mesh1D(self.dx,N,pos,mdb[material])
       new.idxlog(self.c_size)
       print ("solver1D.add_mesh: mesh #{} added, idx={}~{}"\
        .format(len(self.meshes),new.l_idx, new.r_idx))
@@ -296,11 +296,11 @@ class solver1D(__solver):
                   "\n\t*At left of mesh #{}"
                   .format(type,ci[type],n))
             if type is 0:
-               new = contact(m.l_idx,m.material,self.dx,-1)
+               new = contact(m.l_idx,m.material,self.dx)
                self.contact.append(new)
                return new
             elif type is 1:
-               new = contact1(m.l_idx,m.material,self.dx,-1)
+               new = contact1(m.l_idx,m.material,self.dx)
                self.contact1.append(new)
                return new
 
@@ -309,11 +309,11 @@ class solver1D(__solver):
                   "\n\t*At right of mesh #{}"
                   .format(type,ci[type],n))
             if type is 0:
-               new = contact(m.r_idx,m.material,self.dx,1)
+               new = contact(m.r_idx,m.material,self.dx)
                self.contact.append(new)
                return new
             elif type is 1:
-               new = contact1(m.r_idx,m.material,self.dx,1)
+               new = contact1(m.r_idx,m.material,self.dx)
                self.contact1.append(new)
                return new
       else:
@@ -363,7 +363,7 @@ class solver1D(__solver):
             if hasattr(m,v):
                plt.plot(m.vx,m.__dict__[v],color=pcol[v])"""
       for v in vlist:
-         plt.plot(self.__dict__[v],color=pcol[v])
+         plt.plot(self.__dict__[v],color=pcol[v],linewidth=2)
       plt.xlim([0,self.c_size])
       plt.show()
 
@@ -436,7 +436,7 @@ class mesh2D(object):
             print ("Warning! Showing function for " + name +
                    " has not been implemented, ignored..")
             return
-         plt.matshow(data,extent=self.extent,
+         plt.matshow(data.T,extent=self.extent,
                      norm=N,cmap=scol[name])
          plt.title(title)
          plt.colorbar()
