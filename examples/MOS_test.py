@@ -1,5 +1,4 @@
 #!/usr/bin/ipython
-#from solver.drift_diffusion import J_solver1D
 from solver.dev_sim import dev_solver2D
 import numpy as np
 import csv
@@ -51,8 +50,8 @@ Igp_t = np.empty(step)
 
 for n,V in enumerate(Vg):
    cg.V= V
-   filename1 = "MOS_Vg{:.2f}.dat".format(V)
-   output    = open(filename1,'wb')
+   #filename1 = "MOS_Vg{:.2f}.dat".format(V)
+   #output    = open(filename1,'wb')
    s.solve(1e-3,True,False)
    (IDn[n],IDp[n]) = ( cd.Jn, cd.Jp)
    (Ign[n],Igp[n]) = ( cg.Jn, cg.Jp)
@@ -61,7 +60,7 @@ for n,V in enumerate(Vg):
    s.visualize(['Ec','Ev','Efn','Efp'])
    m2.cshow('n')
 
-   pickle.dump(s,output)
+   #pickle.dump(s,output)
 
 f = open("info1.csv",'wb')
 writer = csv.writer(f)

@@ -1,4 +1,6 @@
 *tags
+*.dat
+*.csv
 *.sh
 *.pyc
 *.xls

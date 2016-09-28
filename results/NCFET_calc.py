@@ -8,7 +8,7 @@ import matplotlib
 
 UNDEF = 1000
 def calcSS(VG,ID):
-   i1 = np.min(np.where(ID>1E-5))
+   i1 = np.min(np.where(ID>1E-4))
    i2 = np.max(np.where(ID<1E-1))
    deltaV = VG[i2] - VG[i1]
    multI  = ID[i2] / ID[i1]
@@ -37,42 +37,57 @@ class NCFET_calc:
       self.ax1 = self.fig.add_subplot(1,2,1)
       self.ax2 = self.fig.add_subplot(1,2,2)
 
-      self.ax1.set_title('(a)')
+      #self.ax1.set_title('(a)')
       self.ax2.set_title('(b)')
 
+      self.wt = xlwt.Workbook()
+      self.wsC = self.wt.add_sheet("C")
+      self.wsI = self.wt.add_sheet("IV")
+      self.wsV = self.wt.add_sheet("QV")
+      
       Q1, C1 = calc_C(self.VMOS,self.QMOS)
+
       self.ax1.plot(Q1,C1,label='$C_{MOS}$',
-                          linewidth=2)
+                          linewidth=3)
       self.ax2.semilogy(self.VMOS,self.IDMOS,
                         linewidth=2,
                         label='$MOSFET,\ SS= {0:.2f}mV/dec$'
                         .format(calcSS(self.VMOS,self.IDMOS)))
 
+      self.wsC.write(0,0,"QMOS")
+      self.wsC.write(0,1,"CMOS")
+      for i in range(len(Q1)):
+         self.wsC.write(i+1,0,Q1[i])
+         self.wsC.write(i+1,1,C1[i])
+      self.wsI.write(0,0,"VMOS")
+      self.wsI.write(0,1,"IMOS")
+      for i in range(len(self.VMOS)):
+         self.wsI.write(i+1,0,self.VMOS[i])
+         self.wsI.write(i+1,1,self.IDMOS[i])
 
       ############ plot & subplot configurations ###########
       xt = [0,0.01,0.02,0.03,0.04]
+      #xt = [0,0.005,0.01,0.015]
       self.ax1.set_xticks(xt)
-      self.ax1.set_ylim([0,0.1])
-      self.ax1.set_xlabel(r'$Charge,\ Q(C/m^2)$',fontsize=14)
-      self.ax1.set_ylabel('$Capacitance,\ C(F/m^2)$'
+      self.ax1.set_ylim([0,0.07])
+      self.ax1.set_xlabel('Charge, $Q(C/m^2)$',fontsize=14)
+      self.ax1.set_ylabel('Capacitance, $C(F/m^2)$'
                           ,fontsize=14)
-      self.ax1.set_xlim([0,0.037])
+      self.ax1.set_xlim([0.002,0.035])
       self.ax1.grid()
 
-      self.ax2.set_xlabel('$Gate\ Voltage,\ V_G (V)$',fontsize=14)
-      self.ax2.set_ylabel('$Drain\ Current,\ I_D(\mu A/\mu m)'\
-                          '\ (log\ scale)$',
+      self.ax2.set_xlabel('Gate Voltage, $V_G (V)$',fontsize=14)
+      self.ax2.set_ylabel('Drain Current, $I_D(\mu A/\mu m)$',
                           fontsize=14)
-      self.ax2.set_xlim([-0.,1.6])
-      self.ax2.set_ylim([1e-6,1e3])
+      #self.ax2.set_xlim([-0.,1.6])
+      self.ax2.set_ylim([1e-5,3e2])
       self.ax2.grid()
 
    def calc4stack(self,N,doping,Dit,factor=1,label="",Qf=0):
       filename  = "DATA/PZT_stack_QV({}_{}nm).xls".format(doping,N)
       sheetname = "Dit{}".format(Dit)
 
-      nameC = "$-C_{stack" + str(self.i+1) + '}$'
-      nameC += label
+      nameC = "$-C_{stack}$" + label
       nameI = "$NCFET_{stack" + str(self.i+1) + '},$'
 
       wb   = xlrd.open_workbook(filename)
@@ -83,36 +98,67 @@ class NCFET_calc:
 
       ### plot Q-C relation ###
       Q,C = calc_C(Vstack,Qstack)
-      self.ax1.plot(Q,-C,
-                    marker=mk[self.i],
-                    linewidth=1.5,
+      Q = Q/factor
+      C = C/factor
+      self.ax1.plot(Q,-C,"--",
+                    #marker=mk[self.i],
+                    linewidth=3,
                     label=nameC)
       ### ID-VG simulation ###
       QNCFET,VNCFET,INCFET = self.FEplusMOS(Qstack,Vstack,factor)
       SSNCFET = calcSS(VNCFET,INCFET)
-      nameI += "$\ SS={:.2f}mV/dec$".format(SSNCFET)
+      nameI += "SS={:.2f}mV/dec".format(SSNCFET)
       self.ax2.semilogy(VNCFET,INCFET,
                         marker=mk[self.i],
                         linewidth=1.5,
                         label= nameI)
 
+      col1 = self.i *2 + 2
+      col2 = self.i *2 + 3
+
+      self.wsC.write(0,col1,"Qfe")
+      self.wsC.write(0,col2,"-Cfe")
+      for i in range(len(Q)):
+         self.wsC.write(i+1,col1,Q[i])
+         self.wsC.write(i+1,col2,-C[i])
+      self.wsI.write(0,col1,"Vncfet")
+      self.wsI.write(0,col2,"Incfet")
+      for i in range(len(VNCFET)):
+         self.wsI.write(i+1,col1,VNCFET[i])
+         self.wsI.write(i+1,col2,INCFET[i])
+
       self.i += 1
       return SSNCFET
 
    def FEplusMOS(self,Qstack,Vstack,factor) :
-      Vstack = np.interp(self.QMOS*factor,\
-                         Qstack,Vstack,left=UNDEF,right=UNDEF)
+      Vstack = np.interp(self.QMOS*factor,Qstack,
+                         Vstack,left=UNDEF,right=UNDEF)
       valid_idx = (Vstack!=UNDEF)
       QMOS   = self.QMOS [valid_idx]
-      VNCFET = self.VMOS [valid_idx] + Vstack[valid_idx]
+      VMOS   = self.VMOS [valid_idx]
+      Vstack = Vstack[valid_idx]
+      VNCFET = VMOS+Vstack
+
+      self.wsV.write(0,self.i*4  ,'QMOS')
+      self.wsV.write(0,self.i*4+1,'VMOS')
+      self.wsV.write(0,self.i*4+2,'Vstack')
+      self.wsV.write(0,self.i*4+3,'VNCFET')
+      for i in range(len(QMOS)):
+         self.wsV.write(i+1,self.i*4  ,QMOS[i])
+         self.wsV.write(i+1,self.i*4+1,VMOS[i])
+         self.wsV.write(i+1,self.i*4+2,Vstack[i])
+         self.wsV.write(i+1,self.i*4+3,VNCFET[i])
       ID     = self.IDMOS[valid_idx]
       return QMOS, VNCFET, ID
 
    def show(self,IDscale='log'):
       self.ax2.set_yscale(IDscale)
-      self.ax1.legend(loc='upper left',fontsize=10)
-      self.ax2.legend(loc='upper right',fontsize=11)
+      self.ax1.legend(loc='lower right',fontsize=14)
+      self.ax2.legend(loc='lower right',fontsize=10)
       plt.show()
+
+   def save_wb(self,name):
+      self.wt.save(name)
 
    def save(self,figname,IDscale='log'):
       self.ax2.set_yscale(IDscale)
@@ -120,6 +166,7 @@ class NCFET_calc:
       self.ax2.legend(loc='upper right',fontsize=11)
       self.fig.savefig(figname)
 
+'''
 class NCFET_calc2:
    def __init__(self):
       ######## read the MOSFET data #########
@@ -177,6 +224,7 @@ class NCFET_calc2:
       self.ax3.set_xlim([-0.1,1.5])
       self.ax3.set_ylim([0,1e3])
       self.ax3.grid()
+
    def calc4stack(self,N,doping,Dit,factor=1,label=""):
       filename  = "DATA/PZT_stack_QV({}_{}nm).xls".format(doping,N)
       sheetname = "Dit{}".format(Dit)
@@ -194,7 +242,7 @@ class NCFET_calc2:
 
       ### plot Q-C relation ###
       Q,C = calc_C(Vstack,Qstack)
-      self.ax1.plot(Q,-C,
+      self.ax1.plot(Q*factor,-C/factor,
                     marker=mk[self.i],
                     linewidth=1.5,
                     label=nameC)
@@ -233,6 +281,7 @@ class NCFET_calc2:
       self.ax2.legend(loc='lower right',fontsize=8.5)
       self.ax3.legend(loc='upper right',fontsize=10)
       self.fig.savefig(figname)
+      '''
 ######### plot ###############################
 if __name__ == '__main__':
    N      = 1800
