@@ -1,5 +1,6 @@
 #!/usr/bin/ipython
-#from solver.drift_diffusion import J_solver1D
+import sys
+sys.path.append("../")
 from solver.dev_sim import dev_solver1D
 
 s = dev_solver1D(200e-9)

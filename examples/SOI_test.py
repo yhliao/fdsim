@@ -1,5 +1,6 @@
 #!/usr/bin/ipython
-#from solver.drift_diffusion import J_solver1D
+import sys
+sys.path.append("../")
 from solver.dev_sim import dev_solver2D
 import numpy as np
 import csv
@@ -29,7 +30,8 @@ cg.p = 1e1 * 1e6
 s.visualize(['Ec','Ev'])
 s.construct_profile()
 
-cs.V = 0.87
+### The B.C can be either vector or number
+cs.V = 0.87 * np.ones(10)
 cd.V = 1.87
 
 f = open("SOIinfo-T.csv",'wb')
@@ -53,27 +55,21 @@ for n,V in enumerate(Vg):
    #filename1 = "FDSOI_Vg{}.dat".format(V)
    #output    = open(filename1,'wb')
    s.solve(1e-3,True,False)
-   (IDn[n],IDp[n]) = (cd.Jn, cd.Jp)
-   (Ign[n],Igp[n]) = ( cg.Jn,  cg.Jp)
-   print ("**** VG={}, IDn={}, Ig={} ***".format(V,-cd.Jn,cg.Jn))
+   (IDn[n],IDp[n]) = (cd.In, cd.Ip)
+   (Ign[n],Igp[n]) = (cg.In, cg.Ip)
+   print ("**** VG={}, IDn={}, Ig={} ***".format(V,-cd.In,cg.In))
 
    #s.visualize(['Ec','Ev','Efn','Efp'])
    #m2.cshow('n')
    #pickle.dump(s,output)
-"""
-for n,V in enumerate(Vg):
-   cg.V= V
-   s.solve(1e-3,True,True)
-   (IDn_t[n],IDp_t[n]) = (cd.Jn, cd.Jp)
-   (Ign_t[n],Igp_t[n]) = (cg.Jn, cg.Jp)
-   print ("**** tunneling: VG={}, IDn={}, Ig={} ***"
-            .format(V,-cd.Jn,cg.Jn))"""
 
 writer.writerow(Vg)
 writer.writerow(IDn)
 writer.writerow(IDp)
 writer.writerow(Ign)
 writer.writerow(Igp)
+### Simple access for the displacements at the contact
+print cs.D
 """writer.writerow(IDn_t)
 writer.writerow(IDp_t)
 writer.writerow(Ign_t)

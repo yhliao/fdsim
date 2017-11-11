@@ -1,6 +1,6 @@
 #!/usr/bin/ipython
-#from solver.poisson import p_solver2D
-#from solver.drift_diffusion import J_solver2D
+import sys
+sys.path.append("../")
 from solver.dev_sim import dev_solver2D
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,12 +26,12 @@ s.visualize(['Ec','Ev','Efn','Efp'])
 
 step = 10
 Vg = np.linspace(0,1,10)
-Jt0 = []
-Jt1 = []
+It0 = []
+It1 = []
 for V in Vg:
    c1.V = V
    s.solve(1e-5,SRH=True,tunneling=True)
-   Jt0.append(-c2.Jn)
+   It0.append(-c2.In)
    #s.solve(1e-5,SRH=True,tunneling=True)
    #s.reset_EcBV()
    #s.solve_nlpoisson()
@@ -41,5 +41,5 @@ for V in Vg:
    #s.visualize(['n','p'])
 
 s.visualize(['Ec','Ev','Efn','Efp'])
-plt.plot(Vg,Jt0)#,Vg,Jt1)
+plt.plot(Vg,It0)#,Vg,Jt1)
 plt.show()

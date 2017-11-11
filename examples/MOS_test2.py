@@ -27,9 +27,9 @@ for n,V in enumerate(Vg):
    #filename1 = "MOS_Vg{:.3F}.dat".format(V)
    #output    = open(filename1,'wb')
    s.solve(1e-3,True,False)
-   (IDn[n],IDp[n]) = (cd.Jn, cd.Jp)
-   (Ign[n],Igp[n]) = (cg.Jn, cg.Jp)
-   print ("**** VG={}, IDn={}, Ig={} ***".format(V,cd.Jn,cg.Jn))
+   (IDn[n],IDp[n]) = (cd.In, cd.Ip)
+   (Ign[n],Igp[n]) = (cg.In, cg.Ip)
+   print ("**** VG={}, IDn={}, Ig={} ***".format(V,cd.In,cg.In))
 
    s.visualize(['Ec','Ev'])
    m2.cshow('n')
