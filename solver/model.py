@@ -11,7 +11,7 @@ def MOBILITY():
 class TUNNELING:
    def __init__(self,t,mdiel,meff,l=1):
       self.__B = -4 * sqrt(2*mdiel) / (3* h_ * q) * t
-      self.JC = 4*pi*meff* q /h**3 * q*kBT 
+      self.JC = 4*pi*meff* q /h**3 * q*kBT
       self.len = l
 
    def setEc(self,Ecl,Ecr,EBl,EBr):
@@ -25,8 +25,7 @@ class TUNNELING:
    def WKB(self,E,i):
       A = 0
       if E > self.EBmax[i]:
-         raise ValueError,("electron energy too high ({} > {})"
-               "WKB is used for tunneling only!!").format(E,Emax)
+         raise ValueError(("electron energy too high ({} > {}) WKB is used for tunneling only!!").format(E,Emax))
       elif E > self.EBmin[i]:
          ### FN tunneling
          A = (q*(self.EBmax[i]-E))**1.5

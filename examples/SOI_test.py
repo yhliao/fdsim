@@ -5,7 +5,7 @@ from solver.dev_sim import dev_solver2D
 import numpy as np
 import csv
 import pickle
-
+import pylab
 
 s = dev_solver2D(1e-9,1E-9)
 m0 = s.add_mesh(N=[10,100] , pos=[-10,0], material='Si')
@@ -32,7 +32,7 @@ s.construct_profile()
 
 ### The B.C can be either vector or number
 cs.V = 0.87 * np.ones(10)
-cd.V = 1.87
+cd.V = 0.87+0.05
 
 f = open("SOIinfo-T.csv",'wb')
 writer = csv.writer(f)
@@ -62,15 +62,17 @@ for n,V in enumerate(Vg):
    #s.visualize(['Ec','Ev','Efn','Efp'])
    #m2.cshow('n')
    #pickle.dump(s,output)
+pylab.plot(Vg, IDn)
 
-writer.writerow(Vg)
+'''writer.writerow(Vg)
 writer.writerow(IDn)
 writer.writerow(IDp)
 writer.writerow(Ign)
-writer.writerow(Igp)
+writer.writerow(Igp)'''
 ### Simple access for the displacements at the contact
-print cs.D
+print (cs.D)
 """writer.writerow(IDn_t)
 writer.writerow(IDp_t)
 writer.writerow(Ign_t)
 writer.writerow(Igp_t)"""
+pylab.show()

@@ -30,8 +30,8 @@ class Si:
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
-      print "Error!! all parameters of the material are constant"
-      raise AttributeError, "Edit const.py to change the parameters"
+      print ("Error!! all parameters of the material are constant")
+      raise AttributeError("Edit const.py to change the parameters")
 
 class Ge:
    #__slots__=['type','epr','Nc','Nv','Dn','Dp',\
@@ -51,8 +51,8 @@ class Ge:
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
-      print "Error!! all parameters of the material are constant"
-      raise AttributeError, "Edit const.py to change the parameters"
+      print ("Error!! all parameters of the material are constant")
+      raise AttributeError( "Edit const.py to change the parameters")
 
 class SiO2:
    #__slots__=['type','epr','Eg','meff','phiS']
@@ -64,12 +64,12 @@ class SiO2:
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
-      print "Error!! all parameters of the material are constant"
-      print "Edit const.py to change the parameters"
-      raise AttributeError
+      print ("Error!! all parameters of the material are constant")
+      print ("Edit const.py to change the parameters")
+      raise AttributeError("?")
 
 class PZT:
-   __slots__=['type','epr','Eg','meff','phiS']
+   #__slots__=['type','epr','Eg','meff','phiS']
    type = 'insulator'
    alpha = -4.89e7
    epr  = 1/(2*alpha)
@@ -79,12 +79,12 @@ class PZT:
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
-      print "Error!! all parameters of the material are constant"
-      print "Edit const.py to change the parameters"
-      raise AttributeError
+      print ("Error!! all parameters of the material are constant")
+      print ("Edit const.py to change the parameters")
+      raise AttributeError ("?")
 
 class PZTi:
-   __slots__=['type','epr','Nc','Nv','Dn','Dp','Eg','phiS']
+   #__slots__=['type','epr','Nc','Nv','Dn','Dp','Eg','phiS']
    type = 'semiconductor'
    epr  = 100*ep0
    Nc   = 3.2e19*1e6
@@ -97,11 +97,11 @@ class PZTi:
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
-      print "Error!! all parameters of the material are constant"
-      raise AttributeError, "Edit const.py to change the parameters"
+      print ("Error!! all parameters of the material are constant")
+      raise AttributeError("Edit const.py to change the parameters")
 
 class VirtualOxide:
-   __slots__=['type','epr','Eg','phiS']
+   #__slots__=['type','epr','Eg','phiS']
    type = 'insulator'
    epr  = 4*ep0
    Eg   = 4 # eV
@@ -109,8 +109,8 @@ class VirtualOxide:
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
-      print "Error!! all parameters of the material are constant"
-      print "Edit const.py to change the parameters"
+      print ("Error!! all parameters of the material are constant")
+      print ("Edit const.py to change the parameters")
       raise AttributeError
 
 mdb = {"Si":Si(), "Ge":Ge(), "SiO2":SiO2(),\
