@@ -53,7 +53,7 @@ class contact(object):
          self.idx   = idx
       self.m     = m
       self.d     = d
-      self.Ec = V0 - m.phiS
+      self.Ec = V0*np.ones(len(idx)) - m.phiS
       if m.type is "semiconductor":
          self.n  = m.ni
          self.p  = m.ni
@@ -62,7 +62,7 @@ class contact(object):
       return V0 - (self.Ec + self.m.phiS)
    @V.setter
    def V(self,v):
-      self.Ec = V0 - self.m.phiS - v
+      self.Ec[:] = V0 - self.m.phiS - v
    def __len__(self):
       return len(self.idx)
    def isins(self):
@@ -684,7 +684,7 @@ class solver2D(__solver):
          Bp,Ap = SGn(-dE/kBT, c.m.Dp, c.d) 
          Jn = q* (An * c.n + Bn * self.n[c.idx]) * c.d
          Jp = q* (Ap * c.p + Bp * self.p[c.idx]) * c.d
-         D = c.m.epr * dE / c.d
+         c.D = c.m.epr * dE / c.d
          c.Jn = sum(Jn) * lat
          c.Jp = sum(Jp) * lat
-         c.Q  = sum(D)  * lat
+         c.Q  = sum(c.D)  * lat
