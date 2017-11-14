@@ -61,6 +61,8 @@ class SiO2:
    Eg   = 9 # eV
    meff = me * 0.3
    phiS = 0.95
+   Dn   = 10e-8*.3900 * kBT #TODO: this is just a trick 10e-8*
+   Dp   = 10e-8*.1900 * kBT #TODO: this is just a trick 10e-8*
    def __init__ (self):
       pass
    def __setattr__ (self,name,value):
