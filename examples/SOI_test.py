@@ -68,6 +68,8 @@ Ign_t = np.empty(step)
 Igp_t = np.empty(step)
 
 
+Qg_array  = []
+
 for n,V in enumerate(Vg):
    cg.V= V
    cgb.V= V
@@ -77,7 +79,7 @@ for n,V in enumerate(Vg):
    (IDn[n],IDp[n]) = (cd.In, cd.Ip)
    (Ign[n],Igp[n]) = (cg.In, cg.Ip)
    print ("**** VG={}, IDn={}, Ig={} ***".format(V,-cd.In,cg.In))
-
+   Qg_array.append(cg.D)
    #s.visualize(['Ec','Ev','Efn','Efp'])
    #m2.cshow('n')
    #pickle.dump(s,output)
@@ -90,5 +92,8 @@ s.visualize(['Ec','Ev','Efn','Efp'])
 
 ### Simple access for the displacements at the contact
 print (cs.D)
-
+prefix='05V_25nm_'
+np.savetxt(prefix+'Vg_data.txt', Vg, delimiter=',')
+np.savetxt(prefix+'IDn_data.txt', IDn, delimiter=',')
+np.savetxt(prefix+'Qg_data_new.txt', np.transpose(Qg_array), delimiter=',')
 pylab.show()
