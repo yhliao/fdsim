@@ -33,6 +33,7 @@ def find_nearest(a, a0):
 
 tfe_array = {0,1e-9,2e-9,3e-9}#;%m
 
+vth_sat =[]
 for tfe in tfe_array:
     prefix='../results_juan/'+device+'_Lg'+str(Lg)+'_tins'+str(tinsf)+'_Tch'+str(Tch)+'_tfe'+str(tfe)+'_VDS'+str(Vds)
     Vg = np.loadtxt(prefix+'_Vg_data.txt', delimiter=',')
@@ -47,6 +48,46 @@ for tfe in tfe_array:
     pylab.plot(Vg, IDn,'-')
     pylab.yscale('log')
 
+    SS = 1e3*np.diff(Vg)/ np.diff(np.log10(IDn))
+    pylab.figure(3)
+    pylab.plot(Vg[:-1], SS,'-')
+    axes = pylab.gca()
+    axes.set_ylim([50,100])
+
+
+    value,indexvg = find_nearest(IDn,100)
+    vth_sat.append(Vg[indexvg])
+
+Vds = 0.05
+tfe_array = [0,1e-9,2e-9,3e-9]#;%m
+vth_lin =[]
+for tfe in tfe_array:
+    prefix='../results_juan/'+device+'_Lg'+str(Lg)+'_tins'+str(tinsf)+'_Tch'+str(Tch)+'_tfe'+str(tfe)+'_NBODY'+str(NBODY)+'_VDS'+str(Vds)
+    Vg = np.loadtxt(prefix+'_Vg_data.txt', delimiter=',')
+    IDn = np.loadtxt(prefix+'_IDn_data.txt', delimiter=',')
+    Qg = np.loadtxt(prefix+'_Qg_data_new.txt', delimiter=',')
+    Vfe = np.loadtxt(prefix+'_Vfe_data_new.txt', delimiter=',')
+
+    pylab.figure(1)
+    pylab.plot(Vg, IDn,'-')
+
+    pylab.figure(2)
+    pylab.plot(Vg, IDn,'-')
+    pylab.yscale('log')
+
+    value,indexvg = find_nearest(IDn,100)
+    vth_lin.append(Vg[indexvg])
+
+pylab.figure(4)
+print(vth_sat)
+print(vth_lin)
+dibl = [(x - y)/(0.5-0.05) for x, y in zip(vth_lin,vth_sat)]#np.map(np.operator.sub, vth_sat, vth_lin)# np.array(vth_sat)-np.array(vth_lin)
+print (tfe_array)
+print (dibl)
+pylab.plot(tfe_array, dibl,'-')
+
+'''
+Vds = 0.5
 tfe = 0#;%m
 Lg_array = {20e-9,25e-9,30e-9}#;%m
 for Lg in Lg_array:
@@ -62,6 +103,7 @@ for Lg in Lg_array:
     pylab.figure(4)
     pylab.plot(Vg, IDn,'-')
     pylab.yscale('log')
+
 
 tfe = 3e-9#;%m
 Lg_array = {20e-9,25e-9,30e-9}#;%m
@@ -217,7 +259,7 @@ for NBODY in NBODY_array:
     pylab.figure(10)
     pylab.plot(Vg, IDn,'--')
     pylab.yscale('log')
-
+'''
 '''
 SSfinfet = 1e3*np.diff(Vg0)/ np.diff(np.log10(IDn0))
 SSncfinfet = 1e3*np.diff(Vg0)/ np.diff(np.log10(IDn1))

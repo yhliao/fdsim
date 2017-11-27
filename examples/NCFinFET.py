@@ -9,12 +9,12 @@ import pickle
 import pylab
 
 ################################################################################
-NBODY_array = {1e24,5e24}
-for NBODY in NBODY_array:
+tins_array = {0.8e-9,1.2e-9,1.6e-9}
+for tinsf in tins_array:
     device='ncfet'
     NSD =1e20*1e6
     Lg  = 25e-9
-    tinsf = 1.2e-9
+    #tinsf = 1.2e-9
     tinsb = tinsf
     Tch   = 8e-9
     Ls = 20e-9
@@ -23,13 +23,14 @@ for NBODY in NBODY_array:
     dy = 1e-9
     Vref=0.0
     PHIG=4.5
-    #NBODY=1e21
-    Vds = 0.5
+    NBODY=1e21
+    Vds = 0.05
     alpha = -3e9 #;%m/F alpha=-1.61379679e-2
     beta = 6.5e11 #;%6e11;%C^2m^5/F 6.52372352e-5*1e12
     tfe = 3e-9#;%m
     Vref = 1.0
     vgpoints=20
+    iterations_fe=3
 
     ################################################################################
     def VFE(qfe,alpha,beta,tfe):
@@ -95,7 +96,7 @@ for NBODY in NBODY_array:
 
     vfe_voltage = np.zeros(int(np.round((Lg/dy))))
     for n,V in enumerate(Vgeff):
-       for i in range(3):
+       for i in range(iterations_fe):
            cg.V = V*np.ones(int(np.round((Lg/dy))))-vfe_voltage
            cgb.V = cg.V
            s.solve(1e-3,False,False)
