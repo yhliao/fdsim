@@ -9,14 +9,14 @@ import pickle
 import pylab
 
 ################################################################################
-tfe_array = {0}
+tfe_array = {3e-9,5e-9}
 #Lg tins Tch tfe NBODY VDS
 #data_device =[{20e-9, 0.8e-9 }]
 for tfe in tfe_array:
     device='ncfet'
     NSD = 2e+26
     Lg  = 25e-9
-    tinsf = 1e-9
+    tinsf = 0.5e-9
     tinsb = tinsf
     Tch   = 11e-9
     Ls = 20e-9
@@ -24,7 +24,7 @@ for tfe in tfe_array:
     dx = 0.1e-9
     dy = 2.5e-9
     Vref=0.0
-    PHIG=4.188
+    PHIG=4.388
     NBODY=5e24
     Vds = 1.05
     Ec = 2.5e7 #0.162742753246 *1e6/1e-2 #MV/cm to V/m
@@ -37,7 +37,7 @@ for tfe in tfe_array:
     #tfe = 3e-9#;%m
     Vref = 0.0
     vgpoints=20
-    iterations_fe=1
+    iterations_fe=3
     rootfolderdata ='../results_juan4/'
 
     ################################################################################
@@ -80,8 +80,7 @@ for tfe in tfe_array:
     s.construct_profile()
 
     ### The B.C can be either vector or number
-    cs.V = Vref
-    cd.V = Vref+Vds
+
 
     f = open("SOIinfo-T.csv",'wb')
     writer = csv.writer(f)
@@ -102,6 +101,19 @@ for tfe in tfe_array:
     Qg_array  = []
     Vfe_array = []
 
+
+    cg.V = Vgeff[0]*np.ones(int(np.round((Lg/dy))))
+    cgb.V = cg.V
+
+    for vdsaux in np.linspace(0, Vds, 10):
+        cs.V = Vref
+        cd.V = Vref+vdsaux
+        s.solve(1e-3,False,False)
+
+    print ("finishing ramping up vds")
+
+    cs.V = Vref
+    cd.V = Vref+Vds
     vfe_voltage = np.zeros(int(np.round((Lg/dy))))
     for n,V in enumerate(Vgeff):
        for i in range(iterations_fe):
