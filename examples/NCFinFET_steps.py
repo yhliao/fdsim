@@ -9,36 +9,36 @@ import pickle
 import pylab
 
 ################################################################################
-tfe_array = {3e-9,5e-9}
+Tch_array = [8e-9,10e-9]
 #Lg tins Tch tfe NBODY VDS
 #data_device =[{20e-9, 0.8e-9 }]
-for tfe in tfe_array:
+for Tch in Tch_array:
     device='ncfet'
     NSD = 2e+26
-    Lg  = 25e-9
+    Lg  = 20e-9
     tinsf = 0.5e-9
     tinsb = tinsf
-    Tch   = 11e-9
+    Tch   = 10e-9
     Ls = 20e-9
     Ld = 20e-9
-    dx = 0.1e-9
-    dy = 2.5e-9
+    dx = 0.25e-9
+    dy = 0.25e-9
     Vref=0.0
     PHIG=4.388
     NBODY=5e24
     Vds = 1.05
-    Ec = 2.5e7 #0.162742753246 *1e6/1e-2 #MV/cm to V/m
-    Pr = 22.3298216479 *1e-6/1e-4  #uC/cm^2 to C/m^2
+    Ec = 1.4*1e8#2.5e7 #0.162742753246 *1e6/1e-2 #MV/cm to V/m
+    Pr = 15*1e-6*1e4#22.3298216479 *1e-6/1e-4  #uC/cm^2 to C/m^2
     alpha = -((3*np.sqrt(3))/2.0)*Ec/Pr
     beta = ((3*np.sqrt(3))/2.0)*Ec/Pr**3
     print (alpha,beta)
     #alpha = -3e9 #;%m/F alpha=-1.61379679e-2
     #beta = 6.5e11 #;%6e11;%C^2m^5/F 6.52372352e-5*1e12
-    #tfe = 3e-9#;%m
+    tfe = 3e-9#;%m
     Vref = 0.0
     vgpoints=20
     iterations_fe=3
-    rootfolderdata ='../results_juan4/'
+    rootfolderdata ='../results_juan6/'
 
     ################################################################################
     def VFE(qfe,alpha,beta,tfe):
@@ -116,14 +116,20 @@ for tfe in tfe_array:
     cd.V = Vref+Vds
     vfe_voltage = np.zeros(int(np.round((Lg/dy))))
     for n,V in enumerate(Vgeff):
-       for i in range(iterations_fe):
+       vfe_diff=1
+       i=1
+       while (vfe_diff>0.01):
            cg.V = V*np.ones(int(np.round((Lg/dy))))-vfe_voltage
            cgb.V = cg.V
            s.solve(1e-3,False,False)
            vfe_voltage_old = vfe_voltage
            vfe_voltage = VFE(cg.D,alpha,beta,tfe)
-           print ('VFE sum diff:')
-           print (np.sum(abs(vfe_voltage_old-vfe_voltage)))
+           print ('VFE sum diff:', np.sum(abs(vfe_voltage_old-vfe_voltage)))
+           vfe_diff = (np.sum(abs(vfe_voltage_old-vfe_voltage)))
+           print ('FE iteration:',i)
+           i=i+1
+           #if (i>1):
+           #break
 
        (IDn[n],IDp[n]) = (cd.In, cd.Ip)
        (Ign[n],Igp[n]) = (cg.In, cg.Ip)
@@ -150,4 +156,6 @@ for tfe in tfe_array:
     np.savetxt(prefix+'_IDn_data.txt', IDn, delimiter=',')
     np.savetxt(prefix+'_Qg_data_new.txt', np.transpose(Qg_array), delimiter=',')
     np.savetxt(prefix+'_Vfe_data_new.txt', np.transpose(Vfe_array), delimiter=',')
+
+s.visualize(['Ec','Ev','Efn','Efp'])
 pylab.show()
