@@ -2,6 +2,7 @@
 import sys
 sys.path.append("../")
 from solver.dev_sim import dev_solver2D
+import solver.model as model
 import numpy as np
 import csv
 import pickle
@@ -27,7 +28,7 @@ cd.p = 1e2 * 1e6
 cg.n = 1e19 * 1e6
 cg.p = 1e1 * 1e6
 
-s.visualize(['Ec','Ev'])
+#s.visualize(['Ec','Ev'])
 s.construct_profile()
 
 ### The B.C can be either vector or number
@@ -49,19 +50,19 @@ Igp   = np.empty(step)
 Ign_t = np.empty(step)
 Igp_t = np.empty(step)
 
-
+model.HighFieldDep = True
 for n,V in enumerate(Vg):
    cg.V= V
    #filename1 = "FDSOI_Vg{}.dat".format(V)
    #output    = open(filename1,'wb')
-   s.solve(1e-3,True,False)
+   s.solve(1e-3,False,False)
    (IDn[n],IDp[n]) = (cd.In, cd.Ip)
    (Ign[n],Igp[n]) = (cg.In, cg.Ip)
    print ("**** VG={}, IDn={}, Ig={} ***".format(V,-cd.In,cg.In))
 
-   #s.visualize(['Ec','Ev','Efn','Efp'])
-   #m2.cshow('n')
-   #pickle.dump(s,output)
+s.visualize(['Ec','Ev','Efn','Efp'])
+#m2.cshow('n')
+#pickle.dump(s,output)
 
 writer.writerow(Vg)
 writer.writerow(IDn)
@@ -69,7 +70,7 @@ writer.writerow(IDp)
 writer.writerow(Ign)
 writer.writerow(Igp)
 ### Simple access for the displacements at the contact
-print cs.D
+#print cs.D
 """writer.writerow(IDn_t)
 writer.writerow(IDp_t)
 writer.writerow(Ign_t)

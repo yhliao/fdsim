@@ -8,7 +8,7 @@ from scipy.sparse.linalg import spsolve
 from solver._solver import solver1D, solver2D
 from solver.util    import overlap, calc_offset ,myDamper
 from solver.const   import q , kBT
-from solver.model   import TUNNELING
+from solver.model   import TUNNELING, MOBILITY
 
 ### TODO: mobility and lifetime variation changed with doping
 
@@ -19,8 +19,11 @@ from solver.model   import TUNNELING
 ##################################################
 def SGn(t,Dn,d):
    idx_c = abs(t) > 1e-7
-   An = -Dn/(d**2) * np.ones(len(t))
-   Bn =  Dn/(d**2) * np.ones(len(t))
+   if not type(Dn) is np.ndarray:
+      Dn = Dn*np.ones(len(t))
+
+   An = -Dn/(d**2)
+   Bn =  Dn/(d**2)
    An[idx_c] *= -t[idx_c]/(np.exp(-t[idx_c])-1)
    Bn[idx_c] *=  t[idx_c]/(np.exp( t[idx_c])-1)
    return An, Bn
@@ -236,16 +239,14 @@ class J_solver2D(solver2D):
          if m.material.type is 'semiconductor':
             ##### for x-direction #####
             tx= -np.diff(m.Ec,axis=0).reshape(m.Ny*(m.Nx-1))/kBT
-            dnn[0][0][ix:jx],dnn[0][1][ix:jx]=\
-                        SGn(tx,m.material.Dn,self.dx)
-            dnp[0][1][ix:jx],dnp[0][0][ix:jx]=\
-                        SGn(tx,m.material.Dp,self.dx)
+            Mnx, Mpx = MOBILITY(m.material,Epara=tx/self.dx)
+            dnn[0][0][ix:jx],dnn[0][1][ix:jx]= SGn(tx,Mnx*kBT,self.dx)
+            dnp[0][1][ix:jx],dnp[0][0][ix:jx]= SGn(tx,Mpx*kBT,self.dx)
             ##### for y-direction #####
             ty= -np.diff(m.Ec,axis=1).T.reshape(m.Nx*(m.Ny-1))/kBT
-            dnn[1][0][iy:jy],dnn[1][1][iy:jy]=\
-                        SGn(ty,m.material.Dn,self.dy)
-            dnp[1][1][iy:jy],dnp[1][0][iy:jy]=\
-                        SGn(ty,m.material.Dp,self.dy)
+            Mny, Mpy = MOBILITY(m.material,Epara=ty/self.dy)
+            dnn[1][0][iy:jy],dnn[1][1][iy:jy]= SGn(ty,Mny*kBT,self.dy)
+            dnp[1][1][iy:jy],dnp[1][0][iy:jy]= SGn(ty,Mpy*kBT,self.dy)
          ix = jx
          iy = jy
       assert ix == len(dnn[0][0])
