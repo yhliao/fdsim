@@ -19,8 +19,12 @@ class Si:
    epr  = 11.7*ep0
    Nc   = 3.2e19*1e6
    Nv   = 1.8e19*1e6
-   Dn   = .1430 * kBT
-   Dp   = .0470 * kBT
+   mun   = .1430
+   mup   = .0470
+   Dn   = mun*kBT
+   Dp   = mup*kBT
+   Esatn = 5e6 #V/m
+   Esatp = 5e6 #V/m
    taun = 1e-8
    taup = 1e-8
    meff = me * 0.98
@@ -40,8 +44,12 @@ class Ge:
    epr  = 16*ep0
    Nc   = 3.2e19*1e6
    Nv   = 1.8e19*1e6
-   Dn   = .3900 * kBT
-   Dp   = .1900 * kBT
+   mun   = .3900
+   mup   = .1900
+   Dn   = mun*kBT
+   Dp   = mup*kBT
+   Esatn = 5e6 #V/m
+   Esatp = 5e6 #V/m
    taun = 1e-5
    taup = 1e-5
    meff = me * 1.64
@@ -60,6 +68,12 @@ class SiO2:
    epr  = 3.9*ep0
    Eg   = 9 # eV
    meff = me * 0.3
+   mun   = 1e-8
+   mup   = 1e-8
+   Dn   = mun*kBT
+   Dp   = mup*kBT
+   Esatn = 5e6 #V/m
+   Esatp = 5e6 #V/m
    phiS = 0.95
    Dn   = 10e-8*.3900 * kBT #TODO: this is just a trick 10e-8*
    Dp   = 10e-8*.1900 * kBT #TODO: this is just a trick 10e-8*
@@ -76,6 +90,12 @@ class PZT:
    alpha = -4.89e7
    epr  = 1/(2*alpha)
    Eg   = 3# eV
+   mun   = 1e-8
+   mup   = 1e-8
+   Dn   = mun*kBT
+   Dp   = mup*kBT
+   Esatn = 5e6 #V/m
+   Esatp = 5e6 #V/m
    meff = me * 2
    phiS = 3.35
    def __init__ (self):
@@ -91,8 +111,12 @@ class PZTi:
    epr  = 100*ep0
    Nc   = 3.2e19*1e6
    Nv   = 1.8e19*1e6
-   Dn   = .1430 * kBT
-   Dp   = .470 * kBT
+   mun   = 1e-8
+   mup   = 1e-8
+   Dn   = mun*kBT
+   Dp   = mup*kBT
+   Esatn = 5e6 #V/m
+   Esatp = 5e6 #V/m
    Eg   = 3 # eV
    ni   = np.sqrt(Nc*Nv*np.exp(-Eg/kBT))
    phiS = 3.35
@@ -107,6 +131,12 @@ class VirtualOxide:
    type = 'insulator'
    epr  = 4*ep0
    Eg   = 4 # eV
+   mun   = 1e-8
+   mup   = 1e-8
+   Dn   = mun*kBT
+   Dp   = mup*kBT
+   Esatn = 5e6 #V/m
+   Esatp = 5e6 #V/m
    phiS = 3
    def __init__ (self):
       pass

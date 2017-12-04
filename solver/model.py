@@ -3,9 +3,36 @@ from   numpy import exp, log, sqrt, maximum, minimum
 import scipy.integrate as integrate
 from solver.const import q, kBT, h_, h, pi
 
+HighFieldDep = False
+EnormDep = False
+
 def LIFETIME():
    pass
-def MOBILITY():
+
+def MOBILITY(material,Epara=None,Enorm=None):
+   raten = 1./material.mun
+   ratep = 1./material.mup
+   if HighFieldDep and not (Epara is None):
+      rateHFDn, rateHFDp = MOBILITY_HighField(
+                           material,abs(Epara),ret="inv")
+      raten += rateHFDn
+      ratep += rateHFDp
+   if EnormDep and (not Enorm is None):
+      rateNFDn, rateNFDp = MOBILITY_NormalField(
+                           material,Enorm,ret="inv")
+      raten += rateNFDn
+      ratep += rateNFDp
+   return 1./raten, 1./ratep
+
+def MOBILITY_HighField(material,Epara,ret=""):
+   mu_HFn = material.mun * material.Esatn / Epara
+   mu_HFp = material.mup * material.Esatp / Epara
+   if ret=="inv":
+      return 1./mu_HFn, 1./mu_HFp
+   else:
+      return mu_HFn, mu_HFp
+
+def MOBILITY_NormalField(material,Enorm,ret=""):
    pass
 
 class TUNNELING:

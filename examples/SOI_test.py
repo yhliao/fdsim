@@ -3,6 +3,7 @@ import sys
 sys.path.append("../")
 from solver.dev_sim import dev_solver2D
 from solver.const import mdb, kBT
+import solver.model as model
 import numpy as np
 import csv
 import pickle
@@ -76,6 +77,7 @@ Igp_t = np.empty(step)
 
 Qg_array  = []
 
+model.HighFieldDep = True
 for n,V in enumerate(Vgeff):
    cg.V= V
    cgb.V= V
